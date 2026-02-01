@@ -1,8 +1,8 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** January 31, 2026 (Night)
+> **Last Updated:** January 31, 2026 (Late Night - Header)
 > **Status:** In Development
-> **Current Phase:** Phase 0 - Project Setup
+> **Current Phase:** Phase 1 - Marketing Website (In Progress)
 
 ## North Star (Don't Forget)
 We're building an AI-native lead-to-quote platform for renovation contractors. Users chat with AI to describe their project, upload photos for instant visualization, and get ballpark estimates in minutes instead of days. First client: Red White Reno (Stratford, ON).
@@ -13,28 +13,30 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 
 | Metric | Status |
 |--------|--------|
-| Current Phase | Phase 0: Project Setup |
-| Next Task ID | DEV-005 |
+| Current Phase | Phase 1: Marketing Website |
+| Next Task ID | DEV-010 |
 | Blockers | None |
 | Build Status | ✅ Passing |
-| Branch | feature/dev-004-supabase |
+| Production URL | https://leadquoteenginev2.vercel.app |
+| Branch | feature/dev-003-shadcn-ui |
 
 ---
 
 ## Phase Progress
 
-### Phase 0: Project Setup (Days 1-2) - IN PROGRESS
+### Phase 0: Project Setup (Days 1-2) - COMPLETE ✅
 - [x] DEV-001: Initialize Next.js 16 project with TypeScript ✅
 - [x] DEV-002: Configure Tailwind CSS v4 ✅
 - [x] DEV-003: Install and configure shadcn/ui components ✅
 - [x] DEV-004: Set up Supabase project (Canada region) ✅
 - [x] DEV-005: Create database schema and migrations ✅
 - [x] DEV-006: Configure environment variables and secrets ✅
-- [ ] DEV-007: Set up Vercel project and deployment
+- [x] DEV-007: Set up Vercel project and deployment ✅
 - [x] DEV-008: Create CLAUDE.md configuration ✅
 
-### Phase 1: Marketing Website (Days 3-8) - NOT STARTED
-- [ ] DEV-009 through DEV-020
+### Phase 1: Marketing Website (Days 3-8) - IN PROGRESS
+- [x] DEV-009: Build responsive header with navigation ✅
+- [ ] DEV-010 through DEV-020
 
 ### Phase 2: AI Quote Assistant (Days 9-18) - NOT STARTED
 - [ ] DEV-021 through DEV-032
@@ -51,6 +53,48 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: January 31, 2026 (Late Night - Header Component)
+**Completed:**
+- DEV-009: Build responsive header with navigation
+  - Created Header component with sticky positioning and backdrop blur
+  - Mobile: Hamburger menu (Sheet), centered logo, Get Quote CTA
+  - Desktop: Logo, nav links (Services/Projects/About), Visualize + Get Quote CTAs
+  - 768px responsive breakpoint
+  - Touch targets ≥48px on mobile
+  - Accessibility: aria-label, sr-only description, keyboard navigation
+
+**Technical Notes:**
+- Used shadcn/ui Sheet component for mobile menu
+- Mobile menu closes on route change
+- Brand logo: Red (primary) + White (foreground) + Reno (muted)
+
+**Next Session:**
+1. DEV-010: Create footer component
+2. Continue Phase 1 marketing pages
+
+---
+
+### Session: January 31, 2026 (Late Night - Vercel Deployment)
+**Completed:**
+- DEV-007: Set up Vercel project and deployment
+  - Linked project to Vercel (lead_quote_engine_v2)
+  - Connected to GitHub repository (ferdiebotden-ai/AI-Reno-App)
+  - Added environment variables (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  - Deployed to production successfully
+  - Production URL: https://leadquoteenginev2.vercel.app
+
+**Verified:**
+- Homepage loads correctly
+- Supabase connection works (test-db page)
+- Middleware redirects work (/admin/dashboard → /admin/login)
+- Preview deployments enabled by default for PRs
+
+**Next Session:**
+1. Phase 1: Marketing website (DEV-009+)
+2. Remove test pages before production launch
+
+---
 
 ### Session: January 31, 2026 (Night - Supabase Setup)
 **Completed:**
@@ -165,11 +209,11 @@ None
 
 ## Notes for Next Session
 
-1. **Start Here:** Commit DEV-004/DEV-006 changes, then DEV-005 (database migrations)
-2. **Reference:** PRD_LEAD_TO_QUOTE_ENGINE_V2.md for database schema
-3. **Skill Usage:** Load supabase-patterns skill for migration work
-4. **Branch:** Create feature/dev-005-migrations after merging DEV-004
-5. **Cleanup:** Remove /test-db page after verification
+1. **Start Here:** DEV-010 - Create footer component
+2. **Reference:** PRD_LEAD_TO_QUOTE_ENGINE_V2.md for page specs
+3. **Skill Usage:** Load frontend-design + nextjs-patterns skills
+4. **Cleanup:** Remove /test-db and /api/debug-auth pages before production launch
+5. **Production URL:** https://leadquoteenginev2.vercel.app
 
 ---
 
@@ -177,6 +221,8 @@ None
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-01-31 | Late Night (Header) | DEV-009: Responsive header with navigation |
+| 2026-01-31 | Late Night | DEV-007: Vercel deployment, Phase 0 complete |
 | 2026-01-31 | Night | DEV-004, DEV-006: Supabase client, middleware, env config |
 | 2026-01-31 | Evening | DEV-003: shadcn/ui installed with brand colors |
 | 2026-01-31 | Morning | DEV-001, DEV-002: Next.js 16 + Tailwind v4 initialized |
