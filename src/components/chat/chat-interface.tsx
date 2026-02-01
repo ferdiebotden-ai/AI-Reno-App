@@ -10,11 +10,16 @@ import { useChat, type UIMessage } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 import { MessageBubble } from './message-bubble';
 import { ChatInput } from './chat-input';
 import { TypingIndicator } from './typing-indicator';
 import { EstimateSidebar } from './estimate-sidebar';
+import { ProgressIndicator, detectProgressStep, type ProgressStep } from './progress-indicator';
+import { QuickReplies } from './quick-replies';
+import { SaveProgressModal } from './save-progress-modal';
 import { compressImage, fileToBase64 } from '@/lib/utils/image';
+import { Save } from 'lucide-react';
 
 interface EstimateData {
   projectType?: string;
@@ -46,22 +51,41 @@ interface ChatMessage {
   createdAt?: Date | undefined;
 }
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  initialMessages?: ChatMessage[] | undefined;
+  sessionId?: string | undefined;
+}
+
+const WELCOME_MESSAGE = "Hi! I'm your renovation assistant from Red White Reno. I'm here to help you get a preliminary estimate for your project.\n\nTo get started, you can upload a photo of your space, or just tell me what kind of renovation you're thinking about!";
+
+export function ChatInterface({ initialMessages, sessionId: initialSessionId }: ChatInterfaceProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [localMessages, setLocalMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: "Hi! I'm your renovation assistant from Red White Reno. I'm here to help you get a preliminary estimate for your project.\n\nTo get started, you can upload a photo of your space, or just tell me what kind of renovation you're thinking about!",
-    },
-  ]);
+  const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+
+  // Determine starting messages
+  const startingMessages: ChatMessage[] = initialMessages && initialMessages.length > 0
+    ? initialMessages
+    : [{ id: 'welcome', role: 'assistant', content: WELCOME_MESSAGE }];
+
+  const [localMessages, setLocalMessages] = useState<ChatMessage[]>(startingMessages);
   const [estimateData, setEstimateData] = useState<EstimateData>({});
   const [uploadedImages, setUploadedImages] = useState<Map<string, string[]>>(new Map());
+  const [progressStep, setProgressStep] = useState<ProgressStep>('welcome');
 
   // Create transport with memoization to avoid recreation on every render
   const transport = useMemo(() => new DefaultChatTransport({
     api: '/api/ai/chat',
   }), []);
+
+  // Convert initial messages to UIMessage format for useChat
+  const initialUIMessages = useMemo(() => {
+    return startingMessages.map(msg => ({
+      id: msg.id,
+      role: msg.role as 'user' | 'assistant',
+      parts: [{ type: 'text' as const, text: msg.content }],
+    }));
+  }, []);
 
   const {
     messages,
@@ -70,13 +94,7 @@ export function ChatInterface() {
     error,
   } = useChat({
     transport,
-    messages: [
-      {
-        id: 'welcome',
-        role: 'assistant',
-        parts: [{ type: 'text', text: "Hi! I'm your renovation assistant from Red White Reno. I'm here to help you get a preliminary estimate for your project.\n\nTo get started, you can upload a photo of your space, or just tell me what kind of renovation you're thinking about!" }],
-      },
-    ],
+    messages: initialUIMessages,
   });
 
   const isLoading = status === 'streaming' || status === 'submitted';
@@ -97,6 +115,10 @@ export function ChatInterface() {
     if (lastAssistant) {
       parseEstimateFromResponse(lastAssistant.content);
     }
+
+    // Update progress step based on conversation
+    const detectedStep = detectProgressStep(messagesWithImages);
+    setProgressStep(detectedStep);
   }, [messages, uploadedImages]);
 
   // Auto-scroll to bottom on new messages
@@ -191,10 +213,66 @@ export function ChatInterface() {
     });
   };
 
+  // Handle quick reply selection
+  const handleQuickReply = (value: string) => {
+    handleSend(value, []);
+  };
+
+  // Handle save progress
+  const handleSaveProgress = async (email: string) => {
+    const response = await fetch('/api/sessions/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        messages: localMessages,
+        extractedData: estimateData,
+        sessionId,
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to save progress');
+    }
+
+    const data = await response.json();
+    if (data.sessionId) {
+      setSessionId(data.sessionId);
+    }
+  };
+
+  // Get last assistant message for quick replies
+  const lastAssistantMessage = localMessages
+    .filter(m => m.role === 'assistant')
+    .pop()?.content || '';
+
+  // Show save button only after conversation has started
+  const showSaveButton = localMessages.length > 1;
+
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] bg-background">
       {/* Chat area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Progress indicator with save button */}
+        <div className="border-b border-border px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <ProgressIndicator currentStep={progressStep} className="flex-1" />
+            {showSaveButton && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSaveModal(true)}
+                className="flex-shrink-0"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Save Progress</span>
+                <span className="sm:hidden">Save</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
         {/* Messages */}
         <ScrollArea ref={scrollRef} className="flex-1 p-4">
           <div className="max-w-3xl mx-auto space-y-1">
@@ -215,6 +293,14 @@ export function ChatInterface() {
             )}
           </div>
         </ScrollArea>
+
+        {/* Quick replies */}
+        <QuickReplies
+          lastMessage={lastAssistantMessage}
+          onSelect={handleQuickReply}
+          disabled={isLoading}
+          className="px-4 py-2 border-t border-border"
+        />
 
         {/* Input */}
         <ChatInput
@@ -239,6 +325,13 @@ export function ChatInterface() {
           />
         )}
       </div>
+
+      {/* Save Progress Modal */}
+      <SaveProgressModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onSave={handleSaveProgress}
+      />
     </div>
   );
 }

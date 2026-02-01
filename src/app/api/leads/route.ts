@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/db/server';
 import { calculateEstimate } from '@/lib/pricing/engine';
+import { sendEmail, getOwnerEmail } from '@/lib/email/resend';
+import { LeadConfirmationEmail } from '@/emails/lead-confirmation';
+import { NewLeadNotificationEmail } from '@/emails/new-lead-notification';
 import type { LeadInsert, ProjectType, FinishLevel, Timeline, BudgetBand, Json } from '@/types/database';
 
 /**
@@ -143,6 +146,52 @@ export async function POST(request: NextRequest) {
         has_estimate: !!quoteDraftJson,
       },
     });
+
+    // Send email notifications (don't block on these)
+    const emailPromises: Promise<unknown>[] = [];
+
+    // Customer confirmation email
+    emailPromises.push(
+      sendEmail({
+        to: data.email,
+        subject: `Thanks for your ${data.projectType} renovation inquiry - Red White Reno`,
+        react: LeadConfirmationEmail({
+          customerName: data.name,
+          projectType: data.projectType,
+          estimateLow: quoteDraftJson?.estimateLow,
+          estimateHigh: quoteDraftJson?.estimateHigh,
+        }),
+      }).catch((err) => {
+        console.error('Failed to send customer confirmation email:', err);
+      })
+    );
+
+    // Owner notification email
+    emailPromises.push(
+      sendEmail({
+        to: getOwnerEmail(),
+        subject: `New ${data.projectType} Lead: ${data.name}`,
+        react: NewLeadNotificationEmail({
+          leadId: lead.id,
+          customerName: data.name,
+          customerEmail: data.email,
+          customerPhone: data.phone,
+          projectType: data.projectType,
+          estimateLow: quoteDraftJson?.estimateLow,
+          estimateHigh: quoteDraftJson?.estimateHigh,
+          timeline: data.timeline,
+          goalsText: data.goalsText,
+          hasPhotos: (data.uploadedPhotos?.length ?? 0) > 0,
+          confidenceScore: data.confidenceScore,
+        }),
+        replyTo: data.email,
+      }).catch((err) => {
+        console.error('Failed to send owner notification email:', err);
+      })
+    );
+
+    // Wait for emails but don't fail the request if they fail
+    await Promise.allSettled(emailPromises);
 
     return NextResponse.json({
       success: true,

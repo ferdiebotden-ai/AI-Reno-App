@@ -1,8 +1,8 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 1, 2026 (Phase 2: AI Quote Assistant Core)
+> **Last Updated:** February 1, 2026 (Phase 2 Complete + Phase 3 Started)
 > **Status:** In Development
-> **Current Phase:** Phase 2 - AI Quote Assistant (Core Complete)
+> **Current Phase:** Phase 3 - AI Design Visualizer (Foundation Complete)
 
 ## North Star (Don't Forget)
 We're building an AI-native lead-to-quote platform for renovation contractors. Users chat with AI to describe their project, upload photos for instant visualization, and get ballpark estimates in minutes instead of days. First client: Red White Reno (Stratford, ON).
@@ -13,8 +13,8 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 
 | Metric | Status |
 |--------|--------|
-| Current Phase | Phase 2: AI Quote Assistant |
-| Next Task ID | DEV-029 |
+| Current Phase | Phase 3: AI Design Visualizer |
+| Next Task ID | DEV-038 |
 | Blockers | None |
 | Build Status | ✅ Passing |
 | Production URL | https://leadquoteenginev2.vercel.app |
@@ -34,7 +34,7 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 - [x] DEV-007: Set up Vercel project and deployment ✅
 - [x] DEV-008: Create CLAUDE.md configuration ✅
 
-### Phase 1: Marketing Website (Days 3-8) - IN PROGRESS
+### Phase 1: Marketing Website (Days 3-8) - MOSTLY COMPLETE
 - [x] DEV-009: Build responsive header with navigation ✅
 - [x] DEV-010: Create homepage hero section ✅
 - [x] DEV-011: Build services grid component ✅
@@ -45,10 +45,10 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 - [x] DEV-016: Create project gallery with filtering ✅
 - [x] DEV-017: Build about page ✅
 - [x] DEV-018: Create contact page with form ✅
-- [ ] DEV-019: SEO components (metadata, sitemap, robots.txt)
-- [ ] DEV-020: Google Reviews integration
+- [ ] DEV-019: SEO components (metadata, sitemap, robots.txt) - DEFERRED
+- [ ] DEV-020: Google Reviews integration - DEFERRED
 
-### Phase 2: AI Quote Assistant (Days 9-18) - IN PROGRESS
+### Phase 2: AI Quote Assistant (Days 9-18) - COMPLETE ✅
 - [x] DEV-021: Build Chat UI Component ✅
 - [x] DEV-022: Image Upload with Compression ✅
 - [x] DEV-023: Streaming Chat API Route ✅
@@ -57,13 +57,21 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 - [x] DEV-026: Structured Data Extraction ✅
 - [x] DEV-027: Pricing Engine ✅
 - [x] DEV-028: Lead Submission API ✅
-- [ ] DEV-029: Progress indicator
-- [ ] DEV-030: Quick-reply buttons
-- [ ] DEV-031: Save/resume with magic links
-- [ ] DEV-032: Email notifications
+- [x] DEV-029: Progress indicator ✅
+- [x] DEV-030: Quick-reply buttons ✅
+- [x] DEV-031: Save/resume with magic links ✅
+- [x] DEV-032: Email notifications ✅
 
-### Phase 3: AI Design Visualizer (Days 19-26) - NOT STARTED
-- [ ] DEV-033 through DEV-044
+### Phase 3: AI Design Visualizer (Days 19-26) - IN PROGRESS
+- [x] DEV-033: Visualizer page layout ✅
+- [x] DEV-034: Photo upload component ✅
+- [x] DEV-035: Room type selector ✅
+- [x] DEV-036: Style selector ✅
+- [x] DEV-037: Constraints input ✅
+- [ ] DEV-038: AI image generation API
+- [ ] DEV-039: Result display with comparison
+- [ ] DEV-040: Save/share visualizations
+- [ ] DEV-041 through DEV-044: Additional visualizer features
 
 ### Phase 4: Admin Dashboard (Days 27-35) - NOT STARTED
 - [ ] DEV-045 through DEV-060
@@ -74,6 +82,92 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: February 1, 2026 (Phase 2 Completion + Phase 3 Start)
+**Completed:**
+- DEV-029: Progress indicator showing conversation stage
+- DEV-030: Quick-reply buttons for common responses
+- DEV-031: Save/resume with magic links
+- DEV-032: Email notifications for leads
+- DEV-033-037: Visualizer page foundation
+
+**New Dependencies Installed:**
+- `resend` - Transactional email service
+- `@react-email/components` - Email template components
+
+**New Files Created:**
+- `src/components/chat/progress-indicator.tsx` - Step-by-step progress UI
+- `src/components/chat/quick-replies.tsx` - Contextual quick reply buttons
+- `src/components/chat/save-progress-modal.tsx` - Email capture for magic links
+- `src/app/api/sessions/save/route.ts` - Save session API
+- `src/app/api/sessions/[id]/route.ts` - Get session for resume
+- `src/app/estimate/resume/page.tsx` - Resume page
+- `src/app/estimate/resume/resume-chat.tsx` - Resume chat client component
+- `src/lib/email/resend.ts` - Resend email service
+- `src/emails/session-resume.tsx` - Magic link email template
+- `src/emails/lead-confirmation.tsx` - Customer confirmation email
+- `src/emails/new-lead-notification.tsx` - Owner notification email
+- `src/app/visualizer/page.tsx` - Visualizer landing page
+- `src/components/visualizer/visualizer-form.tsx` - Step-by-step form
+- `src/components/visualizer/photo-upload.tsx` - Drag & drop photo upload
+- `src/components/visualizer/room-type-selector.tsx` - Room type cards
+- `src/components/visualizer/style-selector.tsx` - Design style cards
+- `src/components/visualizer/index.ts` - Component exports
+
+**Modified Files:**
+- `src/components/chat/chat-interface.tsx` - Added progress, quick replies, save
+- `src/components/chat/index.ts` - Added new exports
+- `src/app/api/leads/route.ts` - Added email notifications
+
+**Features Implemented:**
+
+**Progress Indicator (DEV-029):**
+- Visual step indicator (7 steps: Welcome, Photo, Type, Details, Scope, Estimate, Contact)
+- Mobile: compact progress bar with step label
+- Desktop: horizontal stepper with icons
+- Automatically detects current step from conversation content
+
+**Quick Replies (DEV-030):**
+- Contextual buttons appear based on AI's last message
+- Categories: project_type, finish_level, timeline, kitchen_scope, bathroom_scope
+- Horizontal scrollable on mobile
+- Click sends message directly
+
+**Save/Resume (DEV-031):**
+- "Save Progress" button appears after first exchange
+- Modal captures email address
+- Saves session to chat_sessions table
+- Sends magic link via Resend
+- Resume page at /estimate/resume?session={id}
+- Session expires after 7 days
+
+**Email Notifications (DEV-032):**
+- Customer confirmation email with estimate summary
+- Owner notification with lead details and reply-to
+- Emails sent asynchronously (don't block lead creation)
+- React Email templates with Red White Reno branding
+
+**Visualizer Foundation (DEV-033-037):**
+- Step-by-step wizard: Photo → Room → Style → Constraints → Generate
+- Photo upload with drag & drop, preview, compression, tips
+- Room type selector (6 types with icons)
+- Style selector (6 styles with visual cards)
+- Optional constraints text input
+- Placeholder for AI generation (to be implemented in DEV-038+)
+
+**Technical Notes:**
+- Resend client uses lazy initialization to avoid build-time errors
+- exactOptionalPropertyTypes requires `| undefined` on all optional props
+- Zod v4: use `.issues[0]` instead of `.errors[0]` for error messages
+- React Email components need to be in separate files (not co-located)
+
+**Next Session:**
+1. DEV-038: Implement AI image generation API (Gemini 3 Pro Image)
+2. DEV-039: Result display with before/after comparison
+3. Test full quote flow with OPENAI_API_KEY
+4. Test email flow with RESEND_API_KEY
+
+---
 
 ### Session: February 1, 2026 (Phase 2: AI Quote Assistant Core)
 **Completed:**
@@ -108,159 +202,10 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 - `src/app/api/leads/route.ts` - Lead submission to Supabase
 
 **Technical Notes:**
-- AI SDK v6 has significant API changes from earlier versions:
-  - `useChat` uses `transport` with `DefaultChatTransport` instead of `api` string
-  - `UIMessage` has `parts` array instead of `content` string
-  - `sendMessage` takes `{text: string}` not `{role, content}`
-  - `maxTokens` → `maxOutputTokens`
-  - `toDataStreamResponse()` → `toUIMessageStreamResponse()`
-- TypeScript strict mode with `exactOptionalPropertyTypes: true` requires `| undefined` on optional props
+- AI SDK v6 has significant API changes from earlier versions
+- TypeScript strict mode with `exactOptionalPropertyTypes: true`
 - Zod v4: `z.record(z.unknown())` → `z.record(z.string(), z.unknown())`
 - Image compression: client-side Canvas API, max 1920px, JPEG quality 0.8
-
-**Chat Features:**
-- Streaming responses with typing indicator
-- Mobile: single column, input at bottom (thumb zone)
-- Desktop: two-column with sticky estimate sidebar
-- Image upload with preview (up to 3 images, compressed)
-- Live estimate parsing from AI responses
-
-**Pricing Engine:**
-- Kitchen: $150-400/sqft by finish level
-- Bathroom: $200-600/sqft
-- Basement: $40-100/sqft
-- Flooring: $6-20/sqft
-- HST: 13%, Variance: ±15%
-
-**Next Session:**
-1. DEV-029: Add progress indicator to chat
-2. DEV-030: Quick-reply buttons
-3. DEV-031: Save/resume with magic links
-4. DEV-032: Email notifications
-5. Test full flow end-to-end with real OpenAI API
-
----
-
-### Session: February 1, 2026 (Marketing Website Sprint)
-**Completed:**
-- DEV-010: Enhanced homepage with hero section
-  - Hero with headline, CTAs, trust indicators (10+ years, 500+ projects, licensed)
-  - AI Features promo cards (Instant Estimates, Visualize Your Space)
-  - Services section using ServicesGrid component
-  - Why Choose Us section with three value props
-  - Testimonials section
-  - Full-width CTA section with brand primary background
-
-- DEV-011: Created ServicesGrid component
-  - Reusable component for kitchen, bathroom, basement, flooring
-  - Card layout with icons, descriptions, hover effects
-  - Links to individual service pages
-  - 2-col mobile, 4-col desktop grid
-
-- DEV-012: Created Testimonials component
-  - 4 hardcoded reviews with star ratings
-  - Card layout with quote, author, project type
-  - 2-col responsive grid
-
-- DEV-013: Created Footer component
-  - 4-column layout: Company info, Quick Links, Services, Contact
-  - Social media icons (Facebook, Instagram)
-  - Contact details (address, phone, email)
-  - Legal links and copyright
-  - Added to root layout
-
-- DEV-014: Created Services index page
-  - Page with header, breadcrumbs, ServicesGrid
-  - Why choose us section
-  - CTA section
-
-- DEV-015: Created Service detail pages
-  - Kitchen: cabinet refresh to complete remodel packages ($8K-$45K)
-  - Bathroom: fixture refresh to complete remodel ($5K-$30K)
-  - Basement: basic finish to rental suite ($25K-$60K)
-  - Flooring: single room to whole home ($2.5K-$15K)
-  - All pages: features list, pricing guide, CTA with service-specific links
-
-- DEV-016: Created Project Gallery
-  - 8 placeholder projects across 4 categories
-  - Filter tabs (All, Kitchen, Bathroom, Basement, Flooring)
-  - Project cards with lightbox dialog
-  - Before/after placeholders
-
-- DEV-017: Created About page
-  - Company story, mission statement
-  - Values section (Customer First, Quality, Integrity)
-  - Team section with placeholders
-  - Licenses & certifications list
-  - Service area map with Stratford and surrounding areas
-
-- DEV-018: Created Contact page with form
-  - Contact form with Zod validation
-  - Fields: name, email, phone (optional), project type, message
-  - Client-side validation with error display
-  - Success state with "Send Another Message" option
-  - Contact info sidebar with hours and map placeholder
-
-**New shadcn/ui Components Added:**
-- select, textarea, label
-- dialog, tabs, badge
-
-**New Files Created:**
-- src/components/footer.tsx
-- src/components/services-grid.tsx
-- src/components/testimonials.tsx
-- src/components/project-card.tsx
-- src/components/project-gallery.tsx
-- src/components/contact-form.tsx
-- src/lib/schemas/contact.ts
-- src/app/services/page.tsx
-- src/app/services/kitchen/page.tsx
-- src/app/services/bathroom/page.tsx
-- src/app/services/basement/page.tsx
-- src/app/services/flooring/page.tsx
-- src/app/about/page.tsx
-- src/app/contact/page.tsx
-- src/app/projects/page.tsx
-
-**Technical Notes:**
-- Zod v4 uses `message` instead of `required_error` for enum validation
-- Contact form uses separate FormState type to handle empty projectType in strict mode
-- All pages are Server Components except contact-form and project-gallery (client interactivity)
-- Mobile-first responsive design with 375px base
-- Touch targets ≥44px on all interactive elements
-
-**Next Session:**
-1. DEV-019: Add SEO components (sitemap.xml, robots.txt, structured data)
-2. DEV-020: Google Reviews integration (requires API setup)
-3. Phase 2: AI Quote Assistant (DEV-021+)
-
----
-
-### Session: January 31, 2026 (Late Night - Header Component)
-**Completed:**
-- DEV-009: Build responsive header with navigation
-  - Created Header component with sticky positioning and backdrop blur
-  - Mobile: Hamburger menu (Sheet), centered logo, Get Quote CTA
-  - Desktop: Logo, nav links (Services/Projects/About), Visualize + Get Quote CTAs
-  - 768px responsive breakpoint
-  - Touch targets ≥48px on mobile
-  - Accessibility: aria-label, sr-only description, keyboard navigation
-
-**Technical Notes:**
-- Used shadcn/ui Sheet component for mobile menu
-- Mobile menu closes on route change
-- Brand logo: Red (primary) + White (foreground) + Reno (muted)
-
----
-
-### Session: January 31, 2026 (Late Night - Vercel Deployment)
-**Completed:**
-- DEV-007: Set up Vercel project and deployment
-  - Linked project to Vercel (lead_quote_engine_v2)
-  - Connected to GitHub repository (ferdiebotden-ai/AI-Reno-App)
-  - Added environment variables (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  - Deployed to production successfully
-  - Production URL: https://leadquoteenginev2.vercel.app
 
 ---
 
@@ -305,12 +250,13 @@ None
 
 ## Notes for Next Session
 
-1. **Start Here:** DEV-029 - Progress indicator for chat
-2. **Then:** DEV-030-032 - Quick replies, save/resume, email notifications
+1. **Start Here:** DEV-038 - AI image generation API with Gemini 3 Pro Image
+2. **Then:** DEV-039 - Result display with before/after comparison
 3. **Test:** Run full chat flow with OPENAI_API_KEY in .env.local
-4. **Deferred:** DEV-019 (SEO), DEV-020 (Google Reviews) - can do later
-5. **Cleanup:** Remove /test-db and /api/debug-auth pages before production launch
-6. **Production URL:** https://leadquoteenginev2.vercel.app
+4. **Test:** Run email flow with RESEND_API_KEY in .env.local
+5. **Deferred:** DEV-019 (SEO), DEV-020 (Google Reviews) - can do later
+6. **Cleanup:** Remove /test-db and /api/debug-auth pages before production launch
+7. **Production URL:** https://leadquoteenginev2.vercel.app
 
 ---
 
@@ -318,6 +264,7 @@ None
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-01 | Phase 2 Complete + Phase 3 Start | DEV-029 through DEV-037: UX polish + Visualizer foundation |
 | 2026-02-01 | Phase 2 Core | DEV-021 through DEV-028: AI Quote Assistant infrastructure |
 | 2026-02-01 | Marketing Sprint | DEV-010 through DEV-018: All core marketing pages |
 | 2026-01-31 | Late Night (Header) | DEV-009: Responsive header with navigation |
