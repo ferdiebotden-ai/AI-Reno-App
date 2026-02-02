@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Trash2, Sparkles } from 'lucide-react';
 
 export interface LineItem {
   id: string;
@@ -25,6 +26,7 @@ export interface LineItem {
   unit: string;
   unit_price: number;
   total: number;
+  isFromAI?: boolean;
 }
 
 const CATEGORY_OPTIONS = [
@@ -64,15 +66,23 @@ export function QuoteLineItem({ item, onChange, onDelete }: QuoteLineItemProps) 
   }
 
   return (
-    <tr className="group">
+    <tr className={`group ${item.isFromAI ? 'bg-purple-50/30' : ''}`}>
       {/* Description */}
       <td className="p-2">
-        <Input
-          value={item.description}
-          onChange={(e) => handleFieldChange('description', e.target.value)}
-          placeholder="Item description"
-          className="min-w-[200px]"
-        />
+        <div className="flex items-center gap-2">
+          <Input
+            value={item.description}
+            onChange={(e) => handleFieldChange('description', e.target.value)}
+            placeholder="Item description"
+            className="min-w-[200px]"
+          />
+          {item.isFromAI && (
+            <Badge variant="outline" className="shrink-0 text-xs bg-purple-50 text-purple-600 border-purple-200">
+              <Sparkles className="h-3 w-3 mr-1" />
+              AI
+            </Badge>
+          )}
+        </div>
       </td>
 
       {/* Category */}

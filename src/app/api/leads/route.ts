@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/db/server';
 import { calculateEstimate } from '@/lib/pricing/engine';
+import { generateAIQuote, convertAIQuoteToLineItems, calculateAIQuoteTotals } from '@/lib/ai/quote-generation';
 import { sendEmail, getOwnerEmail } from '@/lib/email/resend';
 import { LeadConfirmationEmail } from '@/emails/lead-confirmation';
 import { NewLeadNotificationEmail } from '@/emails/new-lead-notification';
@@ -148,9 +149,12 @@ export async function POST(request: NextRequest) {
 
     const data = validationResult.data;
 
-    // Calculate estimate if we have enough data
+    // Calculate basic estimate for range display
     let quoteDraftJson = null;
+    let aiGeneratedQuote = null;
+
     if (data.projectType && (data.projectType === 'kitchen' || data.projectType === 'bathroom' || data.projectType === 'basement' || data.projectType === 'flooring')) {
+      // Calculate basic estimate for email notifications
       const estimate = calculateEstimate({
         projectType: data.projectType,
         areaSqft: data.areaSqft,
@@ -164,6 +168,31 @@ export async function POST(request: NextRequest) {
         confidence: estimate.confidence,
         notes: estimate.notes,
       };
+
+      // Generate AI-powered detailed quote with line items
+      try {
+        aiGeneratedQuote = await generateAIQuote({
+          projectType: data.projectType,
+          areaSqft: data.areaSqft,
+          finishLevel: data.finishLevel,
+          chatTranscript: data.chatTranscript,
+          goalsText: data.goalsText,
+          city: 'Stratford', // Default for now
+          province: 'ON',
+        });
+
+        // Add AI quote data to the draft JSON
+        const aiTotals = calculateAIQuoteTotals(aiGeneratedQuote);
+        quoteDraftJson = {
+          ...quoteDraftJson,
+          aiQuote: aiGeneratedQuote,
+          aiLineItems: convertAIQuoteToLineItems(aiGeneratedQuote),
+          aiTotals,
+        };
+      } catch (aiError) {
+        // Log but don't fail - the basic estimate is still valuable
+        console.error('AI quote generation failed, using basic estimate:', aiError);
+      }
     }
 
     // Create lead record
@@ -232,6 +261,8 @@ export async function POST(request: NextRequest) {
         source: 'ai_chat',
         project_type: data.projectType,
         has_estimate: !!quoteDraftJson,
+        has_ai_quote: !!aiGeneratedQuote,
+        ai_confidence: aiGeneratedQuote?.overallConfidence,
       },
     });
 

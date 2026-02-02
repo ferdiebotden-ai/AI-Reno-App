@@ -136,6 +136,7 @@ export type Database = {
           updated_at: string;
           version: number;
           line_items: Json;
+          ai_draft_json: Json | null;
           tier_good: Json | null;
           tier_better: Json | null;
           tier_best: Json | null;
@@ -165,6 +166,7 @@ export type Database = {
           updated_at?: string;
           version?: number;
           line_items: Json;
+          ai_draft_json?: Json | null;
           tier_good?: Json | null;
           tier_better?: Json | null;
           tier_best?: Json | null;
@@ -194,6 +196,7 @@ export type Database = {
           updated_at?: string;
           version?: number;
           line_items?: Json;
+          ai_draft_json?: Json | null;
           tier_good?: Json | null;
           tier_better?: Json | null;
           tier_best?: Json | null;
@@ -372,6 +375,33 @@ export type Database = {
           }
         ];
       };
+      admin_settings: {
+        Row: {
+          id: string;
+          key: string;
+          value: Json;
+          description: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          value: Json;
+          description?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          key?: string;
+          value?: Json;
+          description?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -417,6 +447,10 @@ export type AuditLogInsert = Database['public']['Tables']['audit_log']['Insert']
 export type Visualization = Database['public']['Tables']['visualizations']['Row'];
 export type VisualizationInsert = Database['public']['Tables']['visualizations']['Insert'];
 export type VisualizationUpdate = Database['public']['Tables']['visualizations']['Update'];
+
+export type AdminSettings = Database['public']['Tables']['admin_settings']['Row'];
+export type AdminSettingsInsert = Database['public']['Tables']['admin_settings']['Insert'];
+export type AdminSettingsUpdate = Database['public']['Tables']['admin_settings']['Update'];
 
 // Quote line item type (used in quote_drafts.line_items)
 export interface QuoteLineItem {

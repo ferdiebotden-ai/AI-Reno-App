@@ -18,6 +18,9 @@ type RouteContext = { params: Promise<{ leadId: string }> };
 const SendQuoteSchema = z.object({
   customMessage: z.string().max(500).optional(),
   recipientEmail: z.string().email().optional(), // Override recipient if needed
+  emailSubject: z.string().max(200).optional(), // Custom email subject
+  emailBody: z.string().max(5000).optional(), // Custom email body
+  useCustomEmail: z.boolean().optional(), // Whether to use custom email content
 });
 
 // Email configuration
@@ -53,7 +56,7 @@ export async function POST(
       );
     }
 
-    const { customMessage, recipientEmail } = validationResult.data;
+    const { customMessage, recipientEmail, emailSubject, emailBody, useCustomEmail } = validationResult.data;
 
     const supabase = createServiceClient();
 
@@ -137,21 +140,68 @@ export async function POST(
     };
     const projectType = projectTypeLabels[lead.project_type || 'other'] || 'Renovation';
 
+    // Determine email subject
+    const finalSubject = emailSubject || `Your ${projectType} Quote from Red White Reno - ${quoteNumber}`;
+
     // Send email with Resend
     const resend = getResend();
-    const emailResult = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: [toEmail],
-      replyTo: REPLY_TO_EMAIL,
-      subject: `Your ${projectType} Quote from Red White Reno - ${quoteNumber}`,
-      react: QuoteEmailTemplate({ lead, quote, customMessage }),
-      attachments: [
-        {
-          filename,
-          content: pdfBuffer,
-        },
-      ],
-    });
+
+    // Use custom email body if provided
+    let emailResult;
+    if (useCustomEmail && emailBody) {
+      // Send with custom plain text body (Resend will handle it)
+      emailResult = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: [toEmail],
+        replyTo: REPLY_TO_EMAIL,
+        subject: finalSubject,
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="border-bottom: 3px solid #D32F2F; padding-bottom: 20px; margin-bottom: 20px;">
+    <h1 style="color: #D32F2F; margin: 0; font-size: 24px;">Red White Reno</h1>
+    <p style="color: #666; margin: 4px 0 0 0; font-size: 14px;">Quality Renovations in Stratford, Ontario</p>
+  </div>
+
+  ${emailBody.split('\n').map(line => line.trim() ? `<p style="margin-bottom: 16px; color: #333;">${line}</p>` : '<br/>').join('\n')}
+
+  <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #666;">
+    <p style="margin: 0;"><strong style="color: #D32F2F;">Red White Reno</strong></p>
+    <p style="margin: 4px 0;">42 Centre Street, Stratford, ON N5A 1E3</p>
+    <p style="margin: 4px 0;">Tel: 519 301 9140</p>
+    <p style="margin: 4px 0;"><a href="https://www.redwhitereno.com" style="color: #D32F2F;">www.redwhitereno.com</a></p>
+  </div>
+</body>
+</html>
+        `,
+        attachments: [
+          {
+            filename,
+            content: pdfBuffer,
+          },
+        ],
+      });
+    } else {
+      // Use the React template
+      emailResult = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: [toEmail],
+        replyTo: REPLY_TO_EMAIL,
+        subject: finalSubject,
+        react: QuoteEmailTemplate({ lead, quote, customMessage }),
+        attachments: [
+          {
+            filename,
+            content: pdfBuffer,
+          },
+        ],
+      });
+    }
 
     if (emailResult.error) {
       console.error('Email send error:', emailResult.error);
