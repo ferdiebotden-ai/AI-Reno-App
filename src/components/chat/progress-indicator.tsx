@@ -37,6 +37,7 @@ const STEPS: Step[] = [
 
 interface ProgressIndicatorProps {
   currentStep: ProgressStep;
+  hasPhoto?: boolean;
   className?: string;
 }
 
@@ -50,6 +51,7 @@ function getStepIndex(step: ProgressStep): number {
 /**
  * Detect current step from conversation messages
  * Analyzes message content to determine conversation stage
+ * Photo step is only shown if user uploaded a photo or AI explicitly asked for one
  */
 export function detectProgressStep(messages: { role: string; content: string }[]): ProgressStep {
   // Get all message contents joined for analysis
@@ -128,21 +130,26 @@ export function detectProgressStep(messages: { role: string; content: string }[]
     return 'project_type';
   }
 
-  // Check for photo analysis
-  if (
-    allContent.includes('[user uploaded') ||
-    allContent.includes('photo') && allContent.includes('analyze') ||
-    allContent.includes('i can see') && messages.length > 2
-  ) {
+  // Check for photo analysis - only if photo was actually uploaded
+  // Photo indicators: "[user uploaded" marker or AI acknowledging seeing an image
+  const hasUploadedPhoto = allContent.includes('[user uploaded');
+  const aiAcknowledgedPhoto = allContent.includes('i can see') && messages.length > 2;
+
+  if (hasUploadedPhoto || aiAcknowledgedPhoto) {
     return 'photo';
   }
 
-  // Default to welcome
+  // Default to welcome - skip photo step entirely if no photo interaction
   return 'welcome';
 }
 
-export function ProgressIndicator({ currentStep, className }: ProgressIndicatorProps) {
-  const currentIndex = getStepIndex(currentStep);
+export function ProgressIndicator({ currentStep, hasPhoto = false, className }: ProgressIndicatorProps) {
+  // Filter out photo step if no photo has been uploaded
+  const displaySteps = hasPhoto || currentStep === 'photo'
+    ? STEPS
+    : STEPS.filter(s => s.id !== 'photo');
+
+  const currentIndex = displaySteps.findIndex(s => s.id === currentStep);
 
   return (
     <div className={cn('w-full', className)}>
@@ -150,24 +157,24 @@ export function ProgressIndicator({ currentStep, className }: ProgressIndicatorP
       <div className="sm:hidden">
         <div className="flex items-center justify-between px-4 py-2 bg-muted/50 rounded-lg">
           <span className="text-xs text-muted-foreground">
-            Step {Math.max(1, currentIndex + 1)} of {STEPS.length}
+            Step {Math.max(1, currentIndex + 1)} of {displaySteps.length}
           </span>
           <span className="text-xs font-medium">
-            {STEPS[currentIndex]?.label || 'Getting Started'}
+            {displaySteps[currentIndex]?.label || 'Getting Started'}
           </span>
         </div>
         {/* Progress bar */}
         <div className="mt-2 h-1 bg-muted rounded-full overflow-hidden">
           <div
             className="h-full bg-primary transition-all duration-300 ease-out"
-            style={{ width: `${((currentIndex + 1) / STEPS.length) * 100}%` }}
+            style={{ width: `${((currentIndex + 1) / displaySteps.length) * 100}%` }}
           />
         </div>
       </div>
 
       {/* Desktop: Step indicators with icons */}
       <div className="hidden sm:flex items-center justify-center gap-2">
-        {STEPS.map((step, index) => {
+        {displaySteps.map((step, index) => {
           const isComplete = index < currentIndex;
           const isCurrent = index === currentIndex;
           const Icon = step.icon;
@@ -202,7 +209,7 @@ export function ProgressIndicator({ currentStep, className }: ProgressIndicatorP
               </div>
 
               {/* Connector line */}
-              {index < STEPS.length - 1 && (
+              {index < displaySteps.length - 1 && (
                 <div
                   className={cn(
                     'w-8 h-0.5 mx-1 mt-[-16px]',

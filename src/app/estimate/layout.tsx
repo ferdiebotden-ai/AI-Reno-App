@@ -1,7 +1,7 @@
 /**
  * Estimate Layout
  * Full-screen chat experience without footer
- * The chat interface takes up the full viewport
+ * Includes small bottom margin for visual polish
  */
 
 export default function EstimateLayout({
@@ -11,14 +11,14 @@ export default function EstimateLayout({
 }) {
   return (
     <>
-      {/* Hide the footer for this route using CSS */}
+      {/* Hide the footer for this route - full-screen chat experience */}
       <style>{`
-        /* Hide footer on estimate pages - full-screen chat experience */
         footer { display: none !important; }
-        /* Remove min-height constraint from main */
         main { min-height: auto !important; }
       `}</style>
-      {children}
+      <div className="flex flex-col h-[calc(100dvh-4rem)]">
+        {children}
+      </div>
     </>
   );
 }

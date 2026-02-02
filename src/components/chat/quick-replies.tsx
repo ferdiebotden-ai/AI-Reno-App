@@ -14,9 +14,10 @@ import { cn } from '@/lib/utils';
 
 interface QuickRepliesProps {
   lastMessage: string;
+  lastMessageId?: string | undefined;
   onSelect: (value: string) => void;
-  disabled?: boolean;
-  className?: string;
+  disabled?: boolean | undefined;
+  className?: string | undefined;
 }
 
 type QuickReplyCategory = keyof typeof QUICK_REPLIES;
@@ -87,20 +88,25 @@ function detectQuickReplyCategory(message: string): QuickReplyCategory | null {
 
 export function QuickReplies({
   lastMessage,
+  lastMessageId,
   onSelect,
   disabled = false,
   className,
 }: QuickRepliesProps) {
   const [isExiting, setIsExiting] = useState(false);
   const [pendingValue, setPendingValue] = useState<string | null>(null);
+  const [lastSeenMessageId, setLastSeenMessageId] = useState<string | undefined>(undefined);
 
   const category = detectQuickReplyCategory(lastMessage);
 
-  // Reset exit state when category changes (new question asked)
+  // Reset state when message ID changes (new AI response arrived)
   useEffect(() => {
-    setIsExiting(false);
-    setPendingValue(null);
-  }, [category]);
+    if (lastMessageId !== lastSeenMessageId) {
+      setIsExiting(false);
+      setPendingValue(null);
+      setLastSeenMessageId(lastMessageId);
+    }
+  }, [lastMessageId, lastSeenMessageId]);
 
   const handleClick = useCallback(
     (value: string) => {
@@ -118,7 +124,8 @@ export function QuickReplies({
     [isExiting, disabled, onSelect]
   );
 
-  if (!category) {
+  // Don't show quick replies when loading/disabled or no matching category
+  if (disabled || !category) {
     return null;
   }
 
@@ -130,6 +137,7 @@ export function QuickReplies({
 
   return (
     <div
+      key={lastMessageId}
       className={cn(
         'w-full transition-all duration-250 ease-out',
         isExiting && 'opacity-0 translate-y-2',

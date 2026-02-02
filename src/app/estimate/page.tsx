@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 function EstimateLoading() {
   return (
-    <div className="h-[calc(100vh-64px)] flex items-center justify-center">
+    <div className="flex-1 flex items-center justify-center">
       <div className="text-center">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         <p className="text-muted-foreground">Loading...</p>
@@ -20,10 +20,8 @@ function EstimateLoading() {
 
 export default function EstimatePage() {
   return (
-    <main className="min-h-screen">
-      <Suspense fallback={<EstimateLoading />}>
-        <EstimatePageClient />
-      </Suspense>
-    </main>
+    <Suspense fallback={<EstimateLoading />}>
+      <EstimatePageClient />
+    </Suspense>
   );
 }

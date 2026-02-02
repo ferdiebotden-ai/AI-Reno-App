@@ -35,11 +35,18 @@ export interface ProjectSummaryData {
   contactPhone?: string;
 }
 
+export interface FieldChangeInfo {
+  field: keyof ProjectSummaryData;
+  value: string | number | undefined;
+  displayValue: string;
+  fieldLabel: string;
+}
+
 interface ProjectSummarySidebarProps {
   data: ProjectSummaryData;
   isLoading?: boolean;
   className?: string;
-  onDataChange?: (data: Partial<ProjectSummaryData>) => void;
+  onDataChange?: (data: Partial<ProjectSummaryData>, changeInfo?: FieldChangeInfo) => void;
   onSubmitRequest?: () => void;
 }
 
@@ -228,12 +235,45 @@ export function EstimateSidebar({
 }: ProjectSummarySidebarProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
+  // Field label mapping for friendly chat acknowledgements
+  const fieldLabels: Record<string, string> = {
+    projectType: 'project type',
+    areaSqft: 'room size',
+    finishLevel: 'finish level',
+    timeline: 'timeline',
+    goals: 'project goals',
+  };
+
+  // Get display value for a field
+  const getDisplayValue = (field: keyof ProjectSummaryData, value: string): string => {
+    if (field === 'projectType') {
+      return PROJECT_TYPE_LABELS[value] || value;
+    }
+    if (field === 'finishLevel') {
+      return FINISH_LEVEL_OPTIONS.find(o => o.value === value)?.label || value;
+    }
+    if (field === 'timeline') {
+      return TIMELINE_OPTIONS.find(o => o.value === value)?.label || value;
+    }
+    if (field === 'areaSqft') {
+      return `${value} sqft`;
+    }
+    return value;
+  };
+
   const handleFieldChange = useCallback(
     (field: keyof ProjectSummaryData) => (value: string) => {
       if (onDataChange) {
         // Convert to number for numeric fields
         const processedValue = field === 'areaSqft' ? parseInt(value, 10) || undefined : value;
-        onDataChange({ [field]: processedValue });
+        const displayValue = getDisplayValue(field, value);
+        const changeInfo: FieldChangeInfo = {
+          field,
+          value: processedValue,
+          displayValue,
+          fieldLabel: fieldLabels[field] || field,
+        };
+        onDataChange({ [field]: processedValue }, changeInfo);
       }
     },
     [onDataChange]

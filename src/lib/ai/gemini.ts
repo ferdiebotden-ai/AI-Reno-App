@@ -43,8 +43,23 @@ export interface GeneratedImage {
 }
 
 /**
+ * Timeout wrapper for async operations
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  timeoutMessage = 'Request timed out'
+): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(timeoutMessage)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
+
+/**
  * Generate an image using Gemini's native image generation capability
  * Uses gemini-2.0-flash-exp with responseModalities: ["Text", "Image"]
+ * @throws Error if API key not configured or generation fails
  */
 export async function generateImageWithGemini(
   prompt: string,
@@ -52,8 +67,7 @@ export async function generateImageWithGemini(
   inputMimeType?: string
 ): Promise<GeneratedImage | null> {
   if (!googleNativeAI) {
-    console.error('Google AI API key not configured');
-    return null;
+    throw new Error('Image generation is not available. Please try again later.');
   }
 
   try {
@@ -87,7 +101,12 @@ export async function generateImageWithGemini(
     // Add the text prompt
     parts.push({ text: prompt });
 
-    const response = await model.generateContent(parts);
+    // Apply timeout to prevent hanging
+    const response = await withTimeout(
+      model.generateContent(parts),
+      VISUALIZATION_CONFIG.timeout,
+      'Image generation timed out. Please try again.'
+    );
     const result = response.response;
 
     // Extract the generated image from the response
@@ -119,6 +138,10 @@ export async function generateImageWithGemini(
     return null;
   } catch (error) {
     console.error('Gemini image generation error:', error);
-    return null;
+    // Re-throw to allow caller to handle the error
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Failed to generate image. Please try again.');
   }
 }

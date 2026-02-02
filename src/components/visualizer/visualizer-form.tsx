@@ -108,6 +108,10 @@ export function VisualizerForm() {
     }, 500);
 
     try {
+      // Create AbortController for timeout (100s to account for API processing)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 100000);
+
       const response = await fetch('/api/ai/visualize', {
         method: 'POST',
         headers: {
@@ -120,8 +124,10 @@ export function VisualizerForm() {
           constraints: formData.constraints || undefined,
           count: 4,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       clearInterval(progressInterval);
 
       if (!response.ok) {
@@ -141,11 +147,21 @@ export function VisualizerForm() {
       }, 500);
     } catch (err) {
       clearInterval(progressInterval);
-      setError({
-        error: 'Failed to connect to visualization service',
-        code: 'UNKNOWN',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      });
+
+      // Check if this is a timeout error
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError({
+          error: 'Generation timed out',
+          code: 'TIMEOUT',
+          details: 'The visualization took too long. Please try again with a smaller image or simpler settings.',
+        });
+      } else {
+        setError({
+          error: 'Failed to connect to visualization service',
+          code: 'UNKNOWN',
+          details: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }
       setCurrentStep('error');
     }
   }, [formData]);

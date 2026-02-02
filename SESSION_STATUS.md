@@ -1,6 +1,6 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 2, 2026 (Production Deployment Complete)
+> **Last Updated:** February 2, 2026 (Post-Launch Bug Fixes)
 > **Status:** LAUNCHED - Production Ready
 > **Current Phase:** Phase 5 - Testing & Launch (COMPLETE)
 
@@ -113,6 +113,84 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: February 2, 2026 (Post-Launch Bug Fixes)
+**Completed:**
+- Additional bug fixes from manual testing feedback
+
+**Issues Fixed:**
+
+**1. HEIC Image Upload Support**
+- **Issue:** HEIC/HEIF images failed to upload in visualizer
+- **Fix:** Installed `heic2any` library with dynamic import to avoid SSR issues
+- **Files:** `src/lib/utils/image.ts`, `package.json`
+
+**2. Chat/Footer Layout Overlap**
+- **Issue:** Chat content scrolled under footer, submit button got cut off
+- **Fix:** Reverted to hidden footer with CSS for full-screen chat experience. Added proper bottom padding.
+- **Files:** `src/app/estimate/layout.tsx`
+
+**3. Quick Reply Persistence Bug**
+- **Issue:** Quick reply buttons didn't disappear after AI responded
+- **Fix:** Added `lastMessageId` prop tracking and hide when disabled (loading)
+- **Files:** `src/components/chat/quick-replies.tsx`
+
+**4. Submit Request Payload Structure**
+- **Issue:** Validation failed on submit - payload structure mismatch (nested vs flat, wrong enum values)
+- **Fix:** Changed from nested `project_details` with snake_case to flat structure with camelCase. Added `mapTimelineToApi()` function for enum conversion.
+- **Files:** `src/components/chat/chat-interface.tsx`
+
+**5. Chat Data Extraction Enhancement**
+- **Issue:** AI responses contained project details but weren't being parsed into `estimateData`
+- **Fix:** Enhanced `parseEstimateFromResponse` to extract room size, timeline, and finish level from conversation
+- **Files:** `src/components/chat/chat-interface.tsx`
+
+**6. Visualizer Timeout/Error Handling**
+- **Issue:** Gemini API calls had no timeout, progress bar got stuck at 85%
+- **Fix:** Added `withTimeout()` wrapper (90s), AbortController on client fetch (100s), better error messages
+- **Files:** `src/lib/ai/gemini.ts`, `src/components/visualizer/visualizer-form.tsx`
+
+**7. Conditional Photo Step in Progress Indicator**
+- **Issue:** Workflow showed "photo" step even when no photo uploaded
+- **Fix:** Added `hasPhoto` prop to conditionally show photo step
+- **Files:** `src/components/chat/progress-indicator.tsx`
+
+**8. Sidebar Edit Chat Acknowledgement**
+- **Issue:** Edits in sidebar didn't trigger chat acknowledgement
+- **Fix:** Added `FieldChangeInfo` interface and field labels to `handleFieldChange`
+- **Files:** `src/components/chat/estimate-sidebar.tsx`
+
+**9. Submit Request Button Position**
+- **Issue:** Submit button position was unclear
+- **Fix:** Moved Submit Request CTA to below chat input for better visibility
+- **Files:** `src/components/chat/chat-interface.tsx`
+
+**New Dependencies:**
+- `heic2any` - HEIC to JPEG conversion for iOS photos
+
+**Files Modified:**
+```
+package.json                          # Added heic2any
+src/app/estimate/layout.tsx           # Full-screen chat (footer hidden)
+src/app/estimate/page.tsx             # Pass hasPhoto prop
+src/components/chat/chat-interface.tsx # Payload structure, data extraction, submit button position
+src/components/chat/estimate-sidebar.tsx # Field change acknowledgements
+src/components/chat/progress-indicator.tsx # Conditional photo step
+src/components/chat/quick-replies.tsx # Persistence fix
+src/components/visualizer/visualizer-form.tsx # Timeout handling
+src/lib/ai/gemini.ts                  # Timeout wrapper
+src/lib/utils/image.ts                # HEIC conversion
+```
+
+**Decisions Made:**
+- Footer hidden on estimate page for full-screen chat experience (user preference)
+- Submit button placed below chat input for better visibility
+
+**Next Session:**
+1. Continue monitoring for any additional bugs
+2. Complete remaining post-launch tasks (legal pages, user docs)
+
+---
 
 ### Session: February 2, 2026 (Production Deployment Complete)
 **Completed:**
@@ -555,6 +633,7 @@ SELECT set_admin_role('email@example.com');
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-02 | Post-Launch Bug Fixes | Fixed HEIC uploads, chat/footer layout, quick reply persistence, submit payload structure, chat data extraction, visualizer timeout, conditional photo step, sidebar acknowledgements |
 | 2026-02-02 | Production Deployment | DEV-069 to DEV-071: Verified security bypass removed, all tests passing (55 unit, 85 E2E), go-live checklist completed, production ready |
 | 2026-02-02 | Manual Testing Fixes | P0-P6: Fixed visualizer (real Gemini API), removed price estimates from sidebar, added submit/form flows, fixed mobile layout, created admin quotes/settings pages |
 | 2026-02-02 | UAT & Chat Fix | DEV-067: Security fixes (debug routes, admin RBAC), Next.js 16 proxy migration, Supabase admin role setup, AI SDK v3 chat format fix |

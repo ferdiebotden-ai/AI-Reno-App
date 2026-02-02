@@ -8,18 +8,72 @@ const MAX_DIMENSION = 1920;
 const JPEG_QUALITY = 0.85;
 
 /**
+ * Check if file is HEIC/HEIF format
+ */
+function isHeicFile(file: File): boolean {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    type === 'image/heic' ||
+    type === 'image/heif' ||
+    name.endsWith('.heic') ||
+    name.endsWith('.heif')
+  );
+}
+
+/**
+ * Convert HEIC file to JPEG using dynamic import (client-side only)
+ */
+async function convertHeicToJpeg(file: File): Promise<File> {
+  try {
+    // Dynamic import to avoid SSR issues - heic2any uses window
+    const heic2any = (await import('heic2any')).default;
+
+    const result = await heic2any({
+      blob: file,
+      toType: 'image/jpeg',
+      quality: JPEG_QUALITY,
+    });
+
+    // heic2any can return a single blob or array of blobs
+    const blob = Array.isArray(result) ? result[0] : result;
+    if (!blob) {
+      throw new Error('HEIC conversion returned empty result');
+    }
+
+    return new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), {
+      type: 'image/jpeg',
+    });
+  } catch (error) {
+    console.error('HEIC conversion failed:', error);
+    throw new Error(
+      'Unable to process HEIC image. Please convert to JPG or PNG and try again.'
+    );
+  }
+}
+
+/**
  * Compress an image file to be under 2MB and max 1920px
  */
 export async function compressImage(file: File): Promise<File> {
+  // Convert HEIC to JPEG first
+  let processableFile = file;
+  if (isHeicFile(file)) {
+    processableFile = await convertHeicToJpeg(file);
+  }
+
   // If already small enough and correct format, return as-is
-  if (file.size <= MAX_SIZE && (file.type === 'image/jpeg' || file.type === 'image/png')) {
-    const img = await loadImage(file);
+  if (
+    processableFile.size <= MAX_SIZE &&
+    (processableFile.type === 'image/jpeg' || processableFile.type === 'image/png')
+  ) {
+    const img = await loadImage(processableFile);
     if (img.width <= MAX_DIMENSION && img.height <= MAX_DIMENSION) {
-      return file;
+      return processableFile;
     }
   }
 
-  const img = await loadImage(file);
+  const img = await loadImage(processableFile);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 

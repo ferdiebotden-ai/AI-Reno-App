@@ -14,14 +14,14 @@ import { Button } from '@/components/ui/button';
 import { MessageBubble } from './message-bubble';
 import { ChatInput } from './chat-input';
 import { TypingIndicator } from './typing-indicator';
-import { EstimateSidebar, type EstimateData, type ProjectSummaryData } from './estimate-sidebar';
+import { EstimateSidebar, type EstimateData, type ProjectSummaryData, type FieldChangeInfo } from './estimate-sidebar';
 import { ProgressIndicator, detectProgressStep, type ProgressStep } from './progress-indicator';
 import { QuickReplies } from './quick-replies';
 import { SaveProgressModal } from './save-progress-modal';
 import { SubmitRequestModal } from './submit-request-modal';
 import { ProjectFormModal } from './project-form-modal';
 import { compressImage, fileToBase64 } from '@/lib/utils/image';
-import { Save, FileText } from 'lucide-react';
+import { Save, FileText, Send } from 'lucide-react';
 
 // Helper to extract text content from UIMessage parts
 function getMessageContent(message: UIMessage): string {
@@ -55,6 +55,19 @@ interface ChatInterfaceProps {
 }
 
 const WELCOME_MESSAGE = "Hi! I'm your renovation assistant from Red White Reno. I'm here to help you get a preliminary estimate for your project.\n\nTo get started, you can upload a photo of your space, or just tell me what kind of renovation you're thinking about!";
+
+// Map frontend timeline values to API enum values
+function mapTimelineToApi(timeline: string | undefined): string | undefined {
+  if (!timeline) return undefined;
+  const mapping: Record<string, string> = {
+    'asap': 'asap',
+    '1-3mo': '1_3_months',
+    '3-6mo': '3_6_months',
+    '6-12mo': '6_plus_months',
+    'planning': 'just_exploring',
+  };
+  return mapping[timeline] || timeline;
+}
 
 // Map visualization room type to estimate project type
 function mapRoomTypeToProjectType(roomType: string): string {
@@ -145,10 +158,11 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
     }));
     setLocalMessages(messagesWithImages);
 
-    // Parse estimate from latest assistant message
-    const lastAssistant = messagesWithImages.filter(m => m.role === 'assistant').pop();
-    if (lastAssistant) {
-      parseEstimateFromResponse(lastAssistant.content);
+    // Parse estimate data from recent messages (both user and assistant)
+    // Check last few messages to extract project details
+    const recentMessages = messagesWithImages.slice(-4);
+    for (const msg of recentMessages) {
+      parseEstimateFromResponse(msg.content);
     }
 
     // Update progress step based on conversation
@@ -156,15 +170,25 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
     setProgressStep(detectedStep);
   }, [messages, uploadedImages]);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages with smooth animation
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      // Use requestAnimationFrame to ensure DOM is updated before scrolling
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: 'smooth',
+          });
+        }
+      });
     }
   }, [localMessages, isLoading]);
 
-  // Parse estimate data from AI response
+  // Parse estimate data from AI response and user messages
   const parseEstimateFromResponse = useCallback((content: string) => {
+    const lower = content.toLowerCase();
+
     // Look for JSON block in the response
     const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
     if (jsonMatch && jsonMatch[1]) {
@@ -198,13 +222,71 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
     // Check for project type mentions
     const projectTypes = ['kitchen', 'bathroom', 'basement', 'flooring'];
     for (const type of projectTypes) {
-      if (content.toLowerCase().includes(type)) {
+      if (lower.includes(type)) {
         setEstimateData((prev) => ({
           ...prev,
           projectType: prev.projectType || type,
         }));
         break;
       }
+    }
+
+    // Extract room size (e.g., "200 square feet", "150 sqft", "~180 sq ft")
+    const sizeMatch = content.match(/(?:about|around|approximately|~)?\s*(\d+)\s*(?:sq\.?\s*(?:ft|feet)|square\s*feet|sqft)/i);
+    if (sizeMatch?.[1]) {
+      const size = parseInt(sizeMatch[1], 10);
+      if (size > 0 && size < 10000) {
+        setEstimateData((prev) => ({
+          ...prev,
+          areaSqft: prev.areaSqft || size,
+        }));
+      }
+    }
+
+    // Extract timeline from content
+    if (lower.includes('asap') || lower.includes('as soon as possible') || lower.includes('right away') || lower.includes('immediately')) {
+      setEstimateData((prev) => ({
+        ...prev,
+        timeline: prev.timeline || 'asap',
+      }));
+    } else if (lower.includes('1-3 month') || lower.includes('1 to 3 month') || lower.includes('few months') || lower.includes('couple months')) {
+      setEstimateData((prev) => ({
+        ...prev,
+        timeline: prev.timeline || '1-3mo',
+      }));
+    } else if (lower.includes('3-6 month') || lower.includes('3 to 6 month') || lower.includes('half year') || lower.includes('summer') || lower.includes('spring')) {
+      setEstimateData((prev) => ({
+        ...prev,
+        timeline: prev.timeline || '3-6mo',
+      }));
+    } else if (lower.includes('6-12 month') || lower.includes('6 to 12 month') || lower.includes('next year') || lower.includes('year from now')) {
+      setEstimateData((prev) => ({
+        ...prev,
+        timeline: prev.timeline || '6-12mo',
+      }));
+    } else if (lower.includes('just planning') || lower.includes('just exploring') || lower.includes('no rush') || lower.includes('researching')) {
+      setEstimateData((prev) => ({
+        ...prev,
+        timeline: prev.timeline || 'planning',
+      }));
+    }
+
+    // Extract finish level
+    if (lower.includes('premium') || lower.includes('high-end') || lower.includes('luxury') || lower.includes('top quality') || lower.includes('best quality')) {
+      setEstimateData((prev) => ({
+        ...prev,
+        finishLevel: prev.finishLevel || 'premium',
+      }));
+    } else if (lower.includes('economy') || lower.includes('budget') || lower.includes('affordable') || lower.includes('basic') || lower.includes('low cost')) {
+      setEstimateData((prev) => ({
+        ...prev,
+        finishLevel: prev.finishLevel || 'economy',
+      }));
+    } else if (lower.includes('standard') || lower.includes('mid-range') || lower.includes('middle') || lower.includes('average quality')) {
+      setEstimateData((prev) => ({
+        ...prev,
+        finishLevel: prev.finishLevel || 'standard',
+      }));
     }
   }, []);
 
@@ -277,38 +359,44 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
     }
   };
 
-  // Handle sidebar data changes
-  const handleEstimateDataChange = useCallback((changes: Partial<ProjectSummaryData>) => {
+  // Handle sidebar data changes with optional chat acknowledgement
+  const handleEstimateDataChange = useCallback((changes: Partial<ProjectSummaryData>, changeInfo?: FieldChangeInfo) => {
     setEstimateData((prev) => ({ ...prev, ...changes }));
+
+    // Inject chat acknowledgement when user edits via sidebar
+    if (changeInfo && changeInfo.displayValue) {
+      const acknowledgement = `Got it! I've updated your ${changeInfo.fieldLabel} to ${changeInfo.displayValue}.`;
+      const ackMessage: ChatMessage = {
+        id: `ack-${Date.now()}`,
+        role: 'assistant',
+        content: acknowledgement,
+        createdAt: new Date(),
+      };
+      setLocalMessages((prev) => [...prev, ackMessage]);
+    }
   }, []);
 
   // Handle submit request
   const handleSubmitRequest = useCallback(
     async (contactInfo: { name: string; email: string; phone?: string }) => {
-      // Count photos from uploaded images
-      const photosCount = Array.from(uploadedImages.values()).reduce(
-        (sum, imgs) => sum + imgs.length,
-        0
-      );
-
-      // Prepare lead data
+      // Prepare lead data matching API schema (flat structure, camelCase)
       const leadData = {
+        // Contact info (required)
         name: contactInfo.name,
         email: contactInfo.email,
-        phone: contactInfo.phone || null,
-        source: 'chat' as const,
-        project_type: estimateData.projectType || 'other',
-        project_details: {
-          area_sqft: estimateData.areaSqft,
-          finish_level: estimateData.finishLevel,
-          timeline: estimateData.timeline,
-          goals: estimateData.goals,
-          photos_count: photosCount,
-        },
-        chat_history: localMessages.map((m) => ({
-          role: m.role,
+        phone: contactInfo.phone || undefined,
+
+        // Project details (flat structure)
+        projectType: estimateData.projectType || 'other',
+        areaSqft: estimateData.areaSqft,
+        finishLevel: estimateData.finishLevel,
+        timeline: mapTimelineToApi(estimateData.timeline),
+        goalsText: estimateData.goals,
+
+        // Chat transcript
+        chatTranscript: localMessages.map((m) => ({
+          role: m.role as 'user' | 'assistant',
           content: m.content,
-          timestamp: m.createdAt?.toISOString() || new Date().toISOString(),
         })),
       };
 
@@ -332,7 +420,7 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
         ...(contactInfo.phone && { contactPhone: contactInfo.phone }),
       }));
     },
-    [estimateData, localMessages, uploadedImages]
+    [estimateData, localMessages]
   );
 
   // Handle form submission (from form modal)
@@ -347,30 +435,24 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
       finishLevel: string;
       goals: string;
     }) => {
-      // Count photos from uploaded images
-      const photosCount = Array.from(uploadedImages.values()).reduce(
-        (sum, imgs) => sum + imgs.length,
-        0
-      );
-
-      // Prepare lead data from form
+      // Prepare lead data matching API schema (flat structure, camelCase)
       const leadData = {
+        // Contact info
         name: formData.name,
         email: formData.email,
-        phone: formData.phone || null,
-        source: 'form' as const,
-        project_type: formData.projectType || 'other',
-        project_details: {
-          area_sqft: formData.areaSqft ? parseInt(formData.areaSqft, 10) : null,
-          finish_level: formData.finishLevel || null,
-          timeline: formData.timeline || null,
-          goals: formData.goals || null,
-          photos_count: photosCount,
-        },
-        chat_history: localMessages.map((m) => ({
-          role: m.role,
+        phone: formData.phone || undefined,
+
+        // Project details (flat structure)
+        projectType: formData.projectType || 'other',
+        areaSqft: formData.areaSqft ? parseInt(formData.areaSqft, 10) : undefined,
+        finishLevel: formData.finishLevel || undefined,
+        timeline: mapTimelineToApi(formData.timeline),
+        goalsText: formData.goals || undefined,
+
+        // Chat transcript
+        chatTranscript: localMessages.map((m) => ({
+          role: m.role as 'user' | 'assistant',
           content: m.content,
-          timestamp: m.createdAt?.toISOString() || new Date().toISOString(),
         })),
       };
 
@@ -402,13 +484,13 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
 
       setEstimateData((prev) => ({ ...prev, ...newData }));
     },
-    [localMessages, uploadedImages]
+    [localMessages]
   );
 
   // Get last assistant message for quick replies
-  const lastAssistantMessage = localMessages
-    .filter(m => m.role === 'assistant')
-    .pop()?.content || '';
+  const lastAssistant = localMessages.filter(m => m.role === 'assistant').pop();
+  const lastAssistantMessage = lastAssistant?.content || '';
+  const lastAssistantMessageId = lastAssistant?.id;
 
   // Show save button only after conversation has started
   const showSaveButton = localMessages.length > 1;
@@ -426,13 +508,13 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] bg-background">
+    <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden bg-background">
       {/* Chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Progress indicator with save button */}
         <div className="border-b border-border px-4 py-3">
           <div className="flex items-center justify-between gap-4">
-            <ProgressIndicator currentStep={progressStep} className="flex-1" />
+            <ProgressIndicator currentStep={progressStep} hasPhoto={photosCount > 0} className="flex-1" />
             {showSaveButton && (
               <Button
                 variant="outline"
@@ -501,6 +583,7 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
         {/* Quick replies */}
         <QuickReplies
           lastMessage={lastAssistantMessage}
+          lastMessageId={lastAssistantMessageId}
           onSelect={handleQuickReply}
           disabled={isLoading}
           className="px-4 py-2 border-t border-border"
@@ -512,6 +595,26 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
           disabled={isLoading}
           placeholder="Describe your renovation project..."
         />
+
+        {/* Submit Request CTA - shown after minimum data collected, below chat input */}
+        {sidebarData.projectType && !sidebarData.contactEmail ? (
+          <div className="px-4 py-3 pb-6 border-t border-border bg-muted/30">
+            <Button
+              onClick={() => setShowSubmitModal(true)}
+              className="w-full bg-[#D32F2F] hover:bg-[#B71C1C] text-white h-12 text-base font-semibold"
+              size="lg"
+            >
+              <Send className="h-5 w-5 mr-2" />
+              Submit Request for Quote
+            </Button>
+            <p className="text-xs text-center text-muted-foreground mt-2">
+              Ready to proceed? We&apos;ll follow up within 24 hours.
+            </p>
+          </div>
+        ) : (
+          /* Bottom spacer when no submit button */
+          <div className="h-4" />
+        )}
       </div>
 
       {/* Estimate sidebar - desktop only */}
