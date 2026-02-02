@@ -6,6 +6,7 @@ import { LeadProjectCard } from '@/components/admin/lead-project-card';
 import { PhotoGallery } from '@/components/admin/photo-gallery';
 import { ChatTranscript } from '@/components/admin/chat-transcript';
 import { QuoteEditor } from '@/components/admin/quote-editor';
+import { AuditLogView } from '@/components/admin/audit-log';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export const dynamic = 'force-dynamic';
@@ -53,7 +54,11 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   return (
     <div className="space-y-6">
       {/* Header with status and actions */}
-      <LeadDetailHeader lead={lead} />
+      <LeadDetailHeader
+        lead={lead}
+        hasQuote={!!quote && Array.isArray(quote.line_items) && quote.line_items.length > 0}
+        quoteSentAt={quote?.sent_at}
+      />
 
       {/* Main content */}
       <Tabs defaultValue="details" className="space-y-6">
@@ -61,6 +66,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="quote">Quote</TabsTrigger>
           <TabsTrigger value="transcript">Chat</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
         {/* Details Tab */}
@@ -88,12 +94,19 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             leadId={lead.id}
             initialQuote={quote}
             initialEstimate={lead.quote_draft_json}
+            customerEmail={lead.email}
+            customerName={lead.name}
           />
         </TabsContent>
 
         {/* Chat Transcript Tab */}
         <TabsContent value="transcript">
           <ChatTranscript transcript={lead.chat_transcript} />
+        </TabsContent>
+
+        {/* Activity Tab */}
+        <TabsContent value="activity">
+          <AuditLogView leadId={lead.id} />
         </TabsContent>
       </Tabs>
     </div>

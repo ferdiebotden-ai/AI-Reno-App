@@ -1,8 +1,8 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 1, 2026 (Admin Dashboard Lead Management Complete)
+> **Last Updated:** February 1, 2026 (Quote Delivery Workflow Complete)
 > **Status:** In Development
-> **Current Phase:** Phase 4 - Admin Dashboard (Lead Management Complete)
+> **Current Phase:** Phase 4 - Admin Dashboard (Quote Delivery Complete)
 
 ## North Star (Don't Forget)
 We're building an AI-native lead-to-quote platform for renovation contractors. Users chat with AI to describe their project, upload photos for instant visualization, and get ballpark estimates in minutes instead of days. First client: Red White Reno (Stratford, ON).
@@ -14,7 +14,7 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 | Metric | Status |
 |--------|--------|
 | Current Phase | Phase 4: Admin Dashboard |
-| Next Task ID | DEV-057 (PDF Generation) |
+| Next Task ID | DEV-061 (Testing & Launch Phase) |
 | Blockers | None |
 | Build Status | Passing |
 | Production URL | https://leadquoteenginev2.vercel.app |
@@ -76,7 +76,7 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 - [x] DEV-043: Loading states and animations
 - [x] DEV-044: Email capture for non-quote users
 
-### Phase 4: Admin Dashboard (Days 27-35) - IN PROGRESS (Lead Management Complete)
+### Phase 4: Admin Dashboard (Days 27-35) - COMPLETE
 - [x] DEV-045: Admin layout with sidebar
 - [x] DEV-046: Login page with Supabase Auth
 - [x] DEV-047: Route protection middleware
@@ -89,10 +89,10 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 - [x] DEV-054: Quote line item editor
 - [x] DEV-055: Auto-calculate totals
 - [x] DEV-056: Assumptions/exclusions editor
-- [ ] DEV-057: PDF generation
-- [ ] DEV-058: Send quote email
-- [ ] DEV-059: Status workflow audit
-- [ ] DEV-060: Complete audit logging UI
+- [x] DEV-057: PDF generation
+- [x] DEV-058: Send quote email
+- [x] DEV-059: Status workflow audit
+- [x] DEV-060: Complete audit logging UI
 
 ### Phase 5: Testing & Launch (Days 36-42) - NOT STARTED
 - [ ] DEV-061 through DEV-071
@@ -101,99 +101,83 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 
 ## Recent Session Log
 
-### Session: February 1, 2026 (Admin Lead Management Complete)
+### Session: February 1, 2026 (Quote Delivery Workflow Complete)
 **Completed:**
-- DEV-049: Leads table with DataTable, sorting, filtering, pagination
-- DEV-050: Lead search with debounced input and URL state
-- DEV-051: Lead detail page with status management
-- DEV-052: Photo gallery with lightbox viewer
-- DEV-053: Chat transcript display with expand/collapse
-- DEV-054: Quote line item editor with CRUD operations
-- DEV-055: Auto-calculate totals (subtotal, contingency, HST, deposit)
-- DEV-056: Assumptions/exclusions editor with templates
+- DEV-057: PDF Generation with @react-pdf/renderer
+- DEV-058: Send Quote Email via Resend
+- DEV-059: Status Workflow Audit
+- DEV-060: Audit Logging UI
 
 **New Dependencies Installed:**
-- `@tanstack/react-table` - DataTable for leads list
+- `@react-pdf/renderer` - PDF generation for quotes
+- `@radix-ui/react-alert-dialog` - Alert dialog component
 
 **New Files Created:**
-- `src/components/ui/table.tsx` - shadcn/ui Table component
-- `src/app/api/leads/[id]/route.ts` - GET/PATCH single lead API
-- `src/app/api/quotes/[leadId]/route.ts` - GET/PUT quote drafts API
-- `src/app/admin/leads/page.tsx` - Leads list page
-- `src/app/admin/leads/[id]/page.tsx` - Lead detail page
-- `src/components/admin/leads-table.tsx` - DataTable with filters
-- `src/components/admin/lead-detail-header.tsx` - Header with status dropdown
-- `src/components/admin/lead-contact-card.tsx` - Editable contact info
-- `src/components/admin/lead-project-card.tsx` - Project details display
-- `src/components/admin/photo-gallery.tsx` - Photo grid component
-- `src/components/admin/photo-lightbox.tsx` - Full-screen viewer
-- `src/components/admin/chat-transcript.tsx` - Chat message display
-- `src/components/admin/quote-editor.tsx` - Full quote editor
-- `src/components/admin/quote-line-item.tsx` - Individual line item row
+- `src/lib/pdf/quote-template.tsx` - Professional PDF template with Red White Reno branding
+- `src/app/api/quotes/[leadId]/pdf/route.ts` - PDF generation endpoint
+- `src/lib/email/quote-email.tsx` - React Email template for quote delivery
+- `src/app/api/quotes/[leadId]/send/route.ts` - Send quote email endpoint
+- `src/app/api/leads/[id]/audit/route.ts` - Audit log entries endpoint
+- `src/components/admin/audit-log.tsx` - Activity timeline component
+- `src/components/ui/alert-dialog.tsx` - shadcn/ui AlertDialog component
 
 **Modified Files:**
-- `src/app/api/leads/route.ts` - Added GET handler with search/filter/sort
+- `src/components/admin/quote-editor.tsx` - Added PDF download & Send Quote buttons
+- `src/components/admin/lead-detail-header.tsx` - Enhanced with status validation & confirmation dialogs
+- `src/app/admin/leads/[id]/page.tsx` - Added Activity tab
 
 **Features Implemented:**
 
-**Leads Table (DEV-049, DEV-050):**
-- Full DataTable with @tanstack/react-table
-- Columns: Name, Email, Project Type, Status, Created, Actions
-- Server-side filtering by status and project type
-- Server-side sorting by name, created_at
-- Debounced search across name, email, phone
-- URL-based state for shareable filtered views
-- Pagination with 10/25/50 per page options
-- Status badges with consistent color coding
+**PDF Generation (DEV-057):**
+- Professional branded PDF quotes with @react-pdf/renderer
+- Red White Reno branding (primary color #D32F2F)
+- Customer info section with project details
+- Line items table with category badges
+- Totals breakdown: subtotal, contingency, HST 13%, total, deposit 50%
+- Assumptions and exclusions sections
+- Terms & conditions with validity period
+- Footer with contact info and expiry badge
+- Download button in quote editor
 
-**Lead Detail Page (DEV-051):**
-- Two-column layout with tabs (Details, Quote, Chat)
-- Status dropdown with workflow enforcement
-- Editable contact information with inline editing
-- Project details with AI confidence indicator
-- Quick actions (Email, Call) in header
-- Back to leads navigation
+**Email Delivery (DEV-058):**
+- React Email template with professional styling
+- Personalized greeting with customer's first name
+- Quote summary card with key details
+- Optional custom message from contractor
+- PDF attachment included automatically
+- Status updates: quote_drafts.sent_at, lead.status='sent'
+- Audit log entry on send
+- Send Quote button with confirmation dialog
 
-**Photo Gallery (DEV-052):**
-- Grid display of uploaded photos and AI visualizations
-- Badge labels distinguishing photo types
-- Full-screen lightbox with navigation
-- Keyboard shortcuts (arrow keys, ESC)
-- Download button in lightbox
+**Status Workflow (DEV-059):**
+- Enhanced status transition validation
+- Cannot skip from 'new' to 'sent' without quote
+- 'sent' requires actual email (use Send Quote button)
+- 'won'/'lost' are terminal states with warnings
+- Status change confirmation dialog with notes field
+- Blocked transition alert dialog with reason
+- Last updated timestamp display
+- Quote sent timestamp display
 
-**Chat Transcript (DEV-053):**
-- User vs AI message styling
-- Collapsible for long transcripts
-- Timestamps display
-- Empty state handling
-
-**Quote Editor (DEV-054, DEV-055, DEV-056):**
-- Editable line items table with CRUD
-- Category dropdown (materials, labor, contract, permit, other)
-- Auto-calculate on quantity/price change
-- Real-time totals: subtotal, contingency (editable %), HST 13%, total, deposit 50%
-- Auto-save with debounce (2 seconds)
-- Assumptions textarea with default templates
-- Exclusions textarea with default templates
-- Canadian currency formatting
-
-**API Endpoints:**
-- GET /api/leads - List with filters, sorting, pagination
-- GET /api/leads/[id] - Single lead
-- PATCH /api/leads/[id] - Update lead (status, contact, etc.)
-- GET /api/quotes/[leadId] - Get quote draft
-- PUT /api/quotes/[leadId] - Create/update quote draft
+**Audit Logging UI (DEV-060):**
+- GET /api/leads/[id]/audit endpoint with pagination
+- Activity tab in lead detail page
+- Timeline view grouped by date
+- Action type icons and colored badges
+- Expandable details showing old/new values
+- Actions tracked: quote_created, quote_updated, quote_sent, pdf_generated, status_change
+- Canadian timezone formatting (America/Toronto)
+- Load more pagination
 
 **Technical Notes:**
-- exactOptionalPropertyTypes requires careful handling of optional fields
-- Type predicates for Json parsing need unknown intermediary
-- Index signature access required for Record types with noUncheckedIndexedAccess
+- exactOptionalPropertyTypes requires `| undefined` for optional props
+- Buffer to Uint8Array conversion for NextResponse body
+- Index signature access with bracket notation for Record types
 
 **Next Session:**
-1. DEV-057: PDF generation with @react-pdf/renderer
-2. DEV-058: Send quote email
-3. DEV-059: Status workflow audit
-4. DEV-060: Audit logging UI
+1. Phase 5: Testing & Launch
+2. DEV-061: End-to-end testing with Playwright
+3. Final production hardening
 
 ---
 
@@ -238,10 +222,10 @@ None
 
 ## Notes for Next Session
 
-1. **Start Here:** DEV-057 - PDF generation with @react-pdf/renderer
-2. **Then:** DEV-058 (Send quote email), DEV-059 (Status workflow), DEV-060 (Audit UI)
-3. **Test:** Admin dashboard at /admin with real data
-4. **Test:** Quote editor with line items and calculations
+1. **Start Here:** Phase 5 - Testing & Launch
+2. **Test:** Full quote delivery workflow (create quote → download PDF → send email)
+3. **Test:** Status transitions with all validation rules
+4. **Test:** Audit log displays correctly for all actions
 5. **Deferred:** DEV-019 (SEO), DEV-020 (Google Reviews) - can do later
 6. **Cleanup:** Remove /test-db and /api/debug-auth pages before production launch
 7. **Production URL:** https://leadquoteenginev2.vercel.app
@@ -252,6 +236,7 @@ None
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-01 | Quote Delivery Complete | DEV-057 through DEV-060: PDF generation, email delivery, status workflow, audit logging |
 | 2026-02-01 | Admin Lead Management | DEV-049 through DEV-056: Full lead management & quote editing |
 | 2026-02-01 | Phase 3 Complete + Phase 4 Start | DEV-038 through DEV-048: AI Visualizer complete, Admin foundation |
 | 2026-02-01 | Phase 2 Complete + Phase 3 Start | DEV-029 through DEV-037: UX polish + Visualizer foundation |

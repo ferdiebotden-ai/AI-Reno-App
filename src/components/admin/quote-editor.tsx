@@ -21,7 +21,15 @@ import {
 } from '@/components/ui/table';
 import { QuoteLineItem, type LineItem } from './quote-line-item';
 import type { QuoteDraft, Json } from '@/types/database';
-import { Plus, Save, Loader2, FileText, AlertCircle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Plus, Save, Loader2, FileText, AlertCircle, Download, Send, Check } from 'lucide-react';
 
 // Business constants
 const HST_PERCENT = 13;
@@ -47,6 +55,8 @@ interface QuoteEditorProps {
   leadId: string;
   initialQuote: QuoteDraft | null;
   initialEstimate: Json | null;
+  customerEmail?: string;
+  customerName?: string;
 }
 
 function generateId(): string {
@@ -95,6 +105,8 @@ export function QuoteEditor({
   leadId,
   initialQuote,
   initialEstimate,
+  customerEmail,
+  customerName,
 }: QuoteEditorProps) {
   // State
   const [lineItems, setLineItems] = useState<LineItem[]>(() => {
@@ -120,6 +132,16 @@ export function QuoteEditor({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // PDF and send quote state
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [showSendDialog, setShowSendDialog] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
+  const [sendSuccess, setSendSuccess] = useState(false);
+  const [sentAt, setSentAt] = useState<Date | null>(
+    initialQuote?.sent_at ? new Date(initialQuote.sent_at) : null
+  );
 
   // Debounce ref for auto-save
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -215,6 +237,108 @@ export function QuoteEditor({
     const newItems = lineItems.filter((_, i) => i !== index);
     setLineItems(newItems);
     markChanged();
+  }
+
+  // Download PDF
+  async function handleDownloadPdf() {
+    if (lineItems.length === 0) {
+      setError('Add line items before downloading PDF');
+      return;
+    }
+
+    // Save first if there are unsaved changes
+    if (hasChanges) {
+      await saveQuote();
+    }
+
+    setIsDownloading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/quotes/${leadId}/pdf`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate PDF');
+      }
+
+      // Get filename from header or generate one
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'quote.pdf';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match?.[1]) {
+          filename = match[1];
+        }
+      }
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading PDF:', err);
+      setError(err instanceof Error ? err.message : 'Failed to download PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  }
+
+  // Send quote email
+  async function handleSendQuote() {
+    if (lineItems.length === 0) {
+      setError('Add line items before sending quote');
+      return;
+    }
+
+    if (!customerEmail) {
+      setError('No email address available for this customer');
+      return;
+    }
+
+    // Save first if there are unsaved changes
+    if (hasChanges) {
+      await saveQuote();
+    }
+
+    setIsSending(true);
+    setError(null);
+    setSendSuccess(false);
+
+    try {
+      const response = await fetch(`/api/quotes/${leadId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customMessage: customMessage.trim() || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send quote');
+      }
+
+      const data = await response.json();
+      setSentAt(new Date(data.data.sentAt));
+      setSendSuccess(true);
+      setShowSendDialog(false);
+      setCustomMessage('');
+
+      // Refresh the page to update status
+      window.location.reload();
+    } catch (err) {
+      console.error('Error sending quote:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send quote');
+    } finally {
+      setIsSending(false);
+    }
   }
 
   return (
@@ -409,6 +533,140 @@ export function QuoteEditor({
           </CardContent>
         </Card>
       </div>
+
+      {/* Actions: Download PDF & Send Quote */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Quote Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-2">
+              {sentAt && (
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <Check className="h-4 w-4" />
+                  <span>
+                    Sent to {initialQuote?.sent_to_email || customerEmail} on{' '}
+                    {sentAt.toLocaleDateString('en-CA', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              )}
+              {sendSuccess && !sentAt && (
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <Check className="h-4 w-4" />
+                  <span>Quote sent successfully!</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleDownloadPdf}
+                disabled={isDownloading || lineItems.length === 0}
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Download PDF
+              </Button>
+
+              <Button
+                onClick={() => setShowSendDialog(true)}
+                disabled={isSending || lineItems.length === 0 || !customerEmail}
+                className="bg-[#D32F2F] hover:bg-[#B71C1C]"
+              >
+                {isSending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                {sentAt ? 'Resend Quote' : 'Send Quote'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Send Quote Dialog */}
+      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Send Quote to Customer</DialogTitle>
+            <DialogDescription>
+              This will email the quote as a PDF attachment to {customerName || 'the customer'} at{' '}
+              <span className="font-medium">{customerEmail}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="custom-message">Personal Message (Optional)</Label>
+              <Textarea
+                id="custom-message"
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                placeholder="Add a personal note to the customer..."
+                rows={4}
+                maxLength={500}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {customMessage.length}/500 characters
+              </p>
+            </div>
+
+            <div className="bg-muted p-3 rounded-lg space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Amount</span>
+                <span className="font-semibold">{formatCurrency(total)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Deposit Required</span>
+                <span className="font-semibold text-[#D32F2F]">{formatCurrency(depositRequired)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Line Items</span>
+                <span>{lineItems.length} items</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSendDialog(false)}
+              disabled={isSending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendQuote}
+              disabled={isSending}
+              className="bg-[#D32F2F] hover:bg-[#B71C1C]"
+            >
+              {isSending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Quote Email
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
