@@ -10,9 +10,14 @@ import {
   type VisualizationResponse,
   type VisualizationError,
   type GeneratedConcept,
+  type RoomType,
+  type DesignStyle,
 } from '@/lib/schemas/visualization';
-import { generatePlaceholderConcepts } from '@/lib/ai/visualization';
-import { VISUALIZATION_CONFIG } from '@/lib/ai/gemini';
+import {
+  generatePlaceholderConcepts,
+  generateVisualizationConcept,
+} from '@/lib/ai/visualization';
+import { VISUALIZATION_CONFIG, type GeneratedImage } from '@/lib/ai/gemini';
 
 // Maximum execution time for Vercel
 export const maxDuration = 90;
@@ -51,23 +56,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate visualization concepts
-    // For now, using placeholder concepts until Gemini image generation is fully integrated
-    // TODO: Replace with actual Gemini image generation when available
     let concepts: GeneratedConcept[];
 
     if (process.env['GOOGLE_GENERATIVE_AI_API_KEY']) {
-      // When API key is available, try real generation
-      // For now, using placeholders as Vercel AI SDK image generation is in preview
+      // Use real Gemini image generation
       concepts = await generateConceptsWithGemini(
+        supabase,
         image,
-        roomType,
-        style,
+        roomType as RoomType,
+        style as DesignStyle,
         constraints,
         count
       );
     } else {
-      // Use placeholder images for development/demo
-      concepts = generatePlaceholderConcepts(roomType, style, count);
+      // Use placeholder images for development/demo (no API key)
+      console.warn('GOOGLE_GENERATIVE_AI_API_KEY not set, using placeholders');
+      concepts = generatePlaceholderConcepts(
+        roomType as RoomType,
+        style as DesignStyle,
+        count
+      );
     }
 
     // Upload generated concepts to Supabase Storage (for real generated images)
@@ -195,28 +203,107 @@ async function uploadOriginalImage(
   }
 }
 
-// Generate concepts using Gemini (placeholder implementation)
+// Upload generated image to Supabase Storage
+async function uploadGeneratedImage(
+  supabase: ReturnType<typeof createServiceClient>,
+  image: GeneratedImage,
+  index: number
+): Promise<string | null> {
+  try {
+    const extension = image.mimeType.split('/')[1] || 'png';
+    const filename = `generated/${Date.now()}-${index}-${Math.random().toString(36).slice(2)}.${extension}`;
+    const buffer = Buffer.from(image.base64, 'base64');
+
+    const { data, error } = await supabase.storage
+      .from('visualizations')
+      .upload(filename, buffer, {
+        contentType: image.mimeType,
+        upsert: false,
+      });
+
+    if (error) {
+      console.error('Storage upload error:', error);
+      // If bucket doesn't exist, return data URL as fallback
+      if (error.message.includes('Bucket not found')) {
+        console.warn('Visualizations bucket not found, using data URL');
+        return `data:${image.mimeType};base64,${image.base64}`;
+      }
+      return null;
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('visualizations')
+      .getPublicUrl(data.path);
+
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error('Failed to upload generated image:', error);
+    return null;
+  }
+}
+
+// Generate concepts using real Gemini image generation
 async function generateConceptsWithGemini(
+  supabase: ReturnType<typeof createServiceClient>,
   imageBase64: string,
-  roomType: string,
-  style: string,
+  roomType: RoomType,
+  style: DesignStyle,
   constraints: string | undefined,
   count: number
 ): Promise<GeneratedConcept[]> {
-  // TODO: Implement actual Gemini image generation
-  // The Vercel AI SDK's image generation support is in preview
-  // For now, return placeholder concepts
+  const concepts: GeneratedConcept[] = [];
 
-  // Simulate generation time (2-5 seconds per concept)
-  const delay = Math.random() * 3000 + 2000;
-  await new Promise((resolve) => setTimeout(resolve, delay));
+  // Generate concepts in parallel for speed
+  const promises = Array.from({ length: count }, async (_, i) => {
+    try {
+      const result = await generateVisualizationConcept(
+        imageBase64,
+        roomType,
+        style,
+        constraints,
+        i
+      );
 
-  // Return placeholder concepts
-  return generatePlaceholderConcepts(
-    roomType as Parameters<typeof generatePlaceholderConcepts>[0],
-    style as Parameters<typeof generatePlaceholderConcepts>[1],
-    count
-  );
+      if (result) {
+        // Upload to Supabase Storage and get URL
+        const imageUrl = await uploadGeneratedImage(supabase, result, i);
+        if (imageUrl) {
+          return {
+            id: `concept-${i + 1}-${Date.now()}`,
+            imageUrl,
+            description: `${style.charAt(0).toUpperCase() + style.slice(1)} ${roomType.replace('_', ' ')} design - Concept ${i + 1}`,
+            generatedAt: new Date().toISOString(),
+          };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error(`Failed to generate concept ${i + 1}:`, error);
+      return null;
+    }
+  });
+
+  const results = await Promise.allSettled(promises);
+
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value) {
+      concepts.push(result.value);
+    }
+  }
+
+  // If no concepts were generated, fall back to placeholders
+  if (concepts.length === 0) {
+    console.warn('No Gemini images generated, falling back to placeholders');
+    return generatePlaceholderConcepts(roomType, style, count);
+  }
+
+  // If we got fewer than requested, fill with more attempts or placeholders
+  if (concepts.length < count) {
+    console.warn(`Only generated ${concepts.length}/${count} concepts`);
+  }
+
+  return concepts;
 }
 
 // Generate a unique share token

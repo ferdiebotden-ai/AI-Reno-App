@@ -6,6 +6,7 @@
  * PRD: QA-009 - Provide quick-reply buttons for common responses
  */
 
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { QUICK_REPLIES } from '@/lib/ai/question-flow';
@@ -90,7 +91,32 @@ export function QuickReplies({
   disabled = false,
   className,
 }: QuickRepliesProps) {
+  const [isExiting, setIsExiting] = useState(false);
+  const [pendingValue, setPendingValue] = useState<string | null>(null);
+
   const category = detectQuickReplyCategory(lastMessage);
+
+  // Reset exit state when category changes (new question asked)
+  useEffect(() => {
+    setIsExiting(false);
+    setPendingValue(null);
+  }, [category]);
+
+  const handleClick = useCallback(
+    (value: string) => {
+      if (isExiting || disabled) return;
+
+      // Start exit animation
+      setIsExiting(true);
+      setPendingValue(value);
+
+      // After animation completes, trigger the selection
+      setTimeout(() => {
+        onSelect(value);
+      }, 250);
+    },
+    [isExiting, disabled, onSelect]
+  );
 
   if (!category) {
     return null;
@@ -103,7 +129,13 @@ export function QuickReplies({
   }
 
   return (
-    <div className={cn('w-full', className)}>
+    <div
+      className={cn(
+        'w-full transition-all duration-250 ease-out',
+        isExiting && 'opacity-0 translate-y-2',
+        className
+      )}
+    >
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex gap-2 pb-2">
           {replies.map((reply) => (
@@ -111,9 +143,14 @@ export function QuickReplies({
               key={reply.value}
               variant="outline"
               size="sm"
-              onClick={() => onSelect(reply.label)}
-              disabled={disabled}
-              className="flex-shrink-0 h-9 px-4 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors"
+              onClick={() => handleClick(reply.label)}
+              disabled={disabled || isExiting}
+              className={cn(
+                'flex-shrink-0 h-9 px-4 text-sm font-medium transition-all duration-200',
+                'hover:bg-primary hover:text-primary-foreground',
+                // Highlight the clicked button
+                pendingValue === reply.label && 'bg-primary text-primary-foreground scale-95'
+              )}
             >
               {reply.label}
             </Button>

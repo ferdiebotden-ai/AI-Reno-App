@@ -14,25 +14,14 @@ import { Button } from '@/components/ui/button';
 import { MessageBubble } from './message-bubble';
 import { ChatInput } from './chat-input';
 import { TypingIndicator } from './typing-indicator';
-import { EstimateSidebar } from './estimate-sidebar';
+import { EstimateSidebar, type EstimateData, type ProjectSummaryData } from './estimate-sidebar';
 import { ProgressIndicator, detectProgressStep, type ProgressStep } from './progress-indicator';
 import { QuickReplies } from './quick-replies';
 import { SaveProgressModal } from './save-progress-modal';
+import { SubmitRequestModal } from './submit-request-modal';
+import { ProjectFormModal } from './project-form-modal';
 import { compressImage, fileToBase64 } from '@/lib/utils/image';
-import { Save } from 'lucide-react';
-
-interface EstimateData {
-  projectType?: string;
-  areaSqft?: number;
-  finishLevel?: 'economy' | 'standard' | 'premium';
-  estimateLow?: number;
-  estimateHigh?: number;
-  breakdown?: {
-    materials: number;
-    labor: number;
-    hst: number;
-  };
-}
+import { Save, FileText } from 'lucide-react';
 
 // Helper to extract text content from UIMessage parts
 function getMessageContent(message: UIMessage): string {
@@ -92,6 +81,8 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
   const scrollRef = useRef<HTMLDivElement>(null);
   const [sessionId, setSessionId] = useState<string | undefined>(initialSessionId);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
 
   // Determine starting messages based on context
   const welcomeMessage = visualizationContext
@@ -286,6 +277,134 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
     }
   };
 
+  // Handle sidebar data changes
+  const handleEstimateDataChange = useCallback((changes: Partial<ProjectSummaryData>) => {
+    setEstimateData((prev) => ({ ...prev, ...changes }));
+  }, []);
+
+  // Handle submit request
+  const handleSubmitRequest = useCallback(
+    async (contactInfo: { name: string; email: string; phone?: string }) => {
+      // Count photos from uploaded images
+      const photosCount = Array.from(uploadedImages.values()).reduce(
+        (sum, imgs) => sum + imgs.length,
+        0
+      );
+
+      // Prepare lead data
+      const leadData = {
+        name: contactInfo.name,
+        email: contactInfo.email,
+        phone: contactInfo.phone || null,
+        source: 'chat' as const,
+        project_type: estimateData.projectType || 'other',
+        project_details: {
+          area_sqft: estimateData.areaSqft,
+          finish_level: estimateData.finishLevel,
+          timeline: estimateData.timeline,
+          goals: estimateData.goals,
+          photos_count: photosCount,
+        },
+        chat_history: localMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.createdAt?.toISOString() || new Date().toISOString(),
+        })),
+      };
+
+      // Submit to API
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(leadData),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to submit request');
+      }
+
+      // Update estimate data with contact info
+      setEstimateData((prev) => ({
+        ...prev,
+        contactName: contactInfo.name,
+        contactEmail: contactInfo.email,
+        ...(contactInfo.phone && { contactPhone: contactInfo.phone }),
+      }));
+    },
+    [estimateData, localMessages, uploadedImages]
+  );
+
+  // Handle form submission (from form modal)
+  const handleFormSubmit = useCallback(
+    async (formData: {
+      name: string;
+      email: string;
+      phone: string;
+      projectType: string;
+      areaSqft: string;
+      timeline: string;
+      finishLevel: string;
+      goals: string;
+    }) => {
+      // Count photos from uploaded images
+      const photosCount = Array.from(uploadedImages.values()).reduce(
+        (sum, imgs) => sum + imgs.length,
+        0
+      );
+
+      // Prepare lead data from form
+      const leadData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || null,
+        source: 'form' as const,
+        project_type: formData.projectType || 'other',
+        project_details: {
+          area_sqft: formData.areaSqft ? parseInt(formData.areaSqft, 10) : null,
+          finish_level: formData.finishLevel || null,
+          timeline: formData.timeline || null,
+          goals: formData.goals || null,
+          photos_count: photosCount,
+        },
+        chat_history: localMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.createdAt?.toISOString() || new Date().toISOString(),
+        })),
+      };
+
+      // Submit to API
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(leadData),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to submit form');
+      }
+
+      // Update estimate data with form info
+      const newData: Partial<EstimateData> = {
+        contactName: formData.name,
+        contactEmail: formData.email,
+      };
+      if (formData.projectType) newData.projectType = formData.projectType;
+      if (formData.areaSqft) newData.areaSqft = parseInt(formData.areaSqft, 10);
+      if (formData.timeline) newData.timeline = formData.timeline;
+      if (formData.finishLevel) {
+        newData.finishLevel = formData.finishLevel as 'economy' | 'standard' | 'premium';
+      }
+      if (formData.goals) newData.goals = formData.goals;
+      if (formData.phone) newData.contactPhone = formData.phone;
+
+      setEstimateData((prev) => ({ ...prev, ...newData }));
+    },
+    [localMessages, uploadedImages]
+  );
+
   // Get last assistant message for quick replies
   const lastAssistantMessage = localMessages
     .filter(m => m.role === 'assistant')
@@ -293,6 +412,18 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
 
   // Show save button only after conversation has started
   const showSaveButton = localMessages.length > 1;
+
+  // Count photos for sidebar
+  const photosCount = Array.from(uploadedImages.values()).reduce(
+    (sum, imgs) => sum + imgs.length,
+    0
+  );
+
+  // Sidebar data with photos count
+  const sidebarData: ProjectSummaryData = {
+    ...estimateData,
+    photosCount,
+  };
 
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] bg-background">
@@ -315,6 +446,22 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
               </Button>
             )}
           </div>
+
+          {/* Switch to Form option - show after project type is detected */}
+          {estimateData.projectType && !estimateData.contactEmail && (
+            <div className="flex items-center justify-center gap-2 mt-2 pt-2 border-t border-border">
+              <span className="text-xs text-muted-foreground">Prefer a form?</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFormModal(true)}
+                className="h-7 text-xs"
+              >
+                <FileText className="h-3 w-3 mr-1" />
+                Switch to Form
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Messages */}
@@ -338,6 +485,19 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
           </div>
         </ScrollArea>
 
+        {/* Mobile estimate card - inline above quick replies */}
+        {(sidebarData.projectType || photosCount > 0) && (
+          <div className="lg:hidden px-4 py-2 border-t border-border">
+            <EstimateSidebar
+              data={sidebarData}
+              isLoading={isLoading}
+              onDataChange={handleEstimateDataChange}
+              onSubmitRequest={() => setShowSubmitModal(true)}
+              className="shadow-sm"
+            />
+          </div>
+        )}
+
         {/* Quick replies */}
         <QuickReplies
           lastMessage={lastAssistantMessage}
@@ -356,18 +516,12 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
 
       {/* Estimate sidebar - desktop only */}
       <div className="hidden lg:block w-80 border-l border-border p-4 overflow-y-auto">
-        <EstimateSidebar data={estimateData} isLoading={isLoading} />
-      </div>
-
-      {/* Estimate card - mobile (at bottom of chat before input) */}
-      <div className="lg:hidden fixed bottom-[140px] left-4 right-4 z-10">
-        {(estimateData.estimateLow || estimateData.projectType) && (
-          <EstimateSidebar
-            data={estimateData}
-            isLoading={isLoading}
-            className="shadow-lg"
-          />
-        )}
+        <EstimateSidebar
+          data={sidebarData}
+          isLoading={isLoading}
+          onDataChange={handleEstimateDataChange}
+          onSubmitRequest={() => setShowSubmitModal(true)}
+        />
       </div>
 
       {/* Save Progress Modal */}
@@ -375,6 +529,23 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
         isOpen={showSaveModal}
         onClose={() => setShowSaveModal(false)}
         onSave={handleSaveProgress}
+      />
+
+      {/* Submit Request Modal */}
+      <SubmitRequestModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        projectData={sidebarData}
+        messages={localMessages}
+        onSubmit={handleSubmitRequest}
+      />
+
+      {/* Project Form Modal */}
+      <ProjectFormModal
+        isOpen={showFormModal}
+        onClose={() => setShowFormModal(false)}
+        initialData={sidebarData}
+        onSubmit={handleFormSubmit}
       />
     </div>
   );

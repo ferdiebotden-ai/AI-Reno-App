@@ -1,8 +1,8 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 2, 2026 (UAT, Security & Chat Fix Complete)
-> **Status:** Ready for Production
-> **Current Phase:** Phase 5 - Testing & Launch (DEV-067 Complete)
+> **Last Updated:** February 2, 2026 (Manual Testing Feedback Implemented)
+> **Status:** Ready for Production - Requires Full Testing
+> **Current Phase:** Phase 5 - Testing & Launch (Manual Testing Fixes Complete)
 
 ## North Star (Don't Forget)
 We're building an AI-native lead-to-quote platform for renovation contractors. Users chat with AI to describe their project, upload photos for instant visualization, and get ballpark estimates in minutes instead of days. First client: Red White Reno (Stratford, ON).
@@ -112,6 +112,91 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: February 2, 2026 (Manual Testing Feedback Implementation)
+**Completed:**
+- P0-P6: All manual testing feedback items
+
+**Issues Found During Manual Testing & Fixes Applied:**
+
+**P0: CRITICAL - Visualizer Image Generation Broken**
+- **Issue:** Visualizer showed "Fail to process" errors. Code used `generateText()` which doesn't support image generation. Always fell back to placeholder images from `picsum.photos`.
+- **Fix:** Installed `@google/generative-ai` package. Created `generateImageWithGemini()` function using native Google AI SDK with `responseModalities: ['Text', 'Image']` config. Updated API route to upload generated images to Supabase Storage.
+- **Files:** `src/lib/ai/gemini.ts`, `src/lib/ai/visualization.ts`, `src/app/api/ai/visualize/route.ts`
+
+**P1: Quote Assistant Sidebar Showing Price Estimates**
+- **Issue:** Sidebar displayed `$25,000 - $32,000` price estimates which customer shouldn't see.
+- **Fix:** Completely rewrote sidebar as "Your Project" panel. Removed all price display. Added editable fields with click-to-edit pattern. Added "Submit Request" CTA.
+- **Files:** `src/components/chat/estimate-sidebar.tsx` (rewritten)
+
+**P2: No Submit Request Flow**
+- **Issue:** No explicit way to submit lead request. Only "Save Progress" existed.
+- **Fix:** Created `SubmitRequestModal` with review → contact info → success flow. Added button to sidebar when minimum data collected.
+- **Files:** `src/components/chat/submit-request-modal.tsx` (new), `src/components/chat/chat-interface.tsx`
+
+**P3: Quick Reply Buttons Not Disappearing Properly**
+- **Issue:** Buttons didn't fade out when clicked - UX felt janky.
+- **Fix:** Added exit animation with opacity fade + translate. Clicked button gets highlighted. 250ms delay before triggering action.
+- **Files:** `src/components/chat/quick-replies.tsx`
+
+**P4: Chat Overlays Footer on Mobile**
+- **Issue:** Mobile estimate card positioned `fixed bottom-[140px]` overlapped footer. Layout conflict.
+- **Fix:** Created estimate layout that hides footer. Moved mobile estimate card inline (above quick replies) instead of fixed positioning.
+- **Files:** `src/app/estimate/layout.tsx` (new), `src/components/chat/chat-interface.tsx`
+
+**P5: Admin /quotes and /settings Pages 404**
+- **Issue:** Navigation links existed but pages didn't.
+- **Fix:** Created both pages. Quotes page shows all quote_drafts with lead info, status filters, pagination. Settings page has notification toggles, quote defaults, business info form.
+- **Files:** `src/app/admin/quotes/page.tsx` (new), `src/app/admin/settings/page.tsx` (new), `src/components/ui/separator.tsx` (new), `src/components/ui/switch.tsx` (new)
+
+**P6: No Form Alternative to Chat**
+- **Issue:** Some users prefer forms over chat - no option to switch.
+- **Fix:** Created `ProjectFormModal` with structured form pre-filled from chat context. Added "Switch to Form" button that appears after project type detected.
+- **Files:** `src/components/chat/project-form-modal.tsx` (new), `src/components/chat/chat-interface.tsx`
+
+**New Dependencies:**
+- `@google/generative-ai` - Native Google AI SDK for image generation
+
+**Files Created:**
+```
+src/app/estimate/layout.tsx           # Full-screen chat layout (no footer)
+src/app/admin/quotes/page.tsx         # Quotes list page
+src/app/admin/settings/page.tsx       # Settings configuration page
+src/components/chat/submit-request-modal.tsx    # Lead submission flow
+src/components/chat/project-form-modal.tsx      # Form alternative to chat
+src/components/ui/separator.tsx       # shadcn/ui Separator
+src/components/ui/switch.tsx          # shadcn/ui Switch
+```
+
+**Files Modified:**
+```
+package.json                          # Added @google/generative-ai
+src/lib/ai/gemini.ts                  # Native Gemini image generation
+src/lib/ai/visualization.ts           # Real AI image generation
+src/app/api/ai/visualize/route.ts     # Supabase storage upload for images
+src/components/chat/estimate-sidebar.tsx   # Complete rewrite as Project Summary
+src/components/chat/chat-interface.tsx     # Modals, form option, layout fixes
+src/components/chat/quick-replies.tsx      # Animation improvements
+```
+
+**IMPORTANT - Next Session Must Test:**
+1. **Visualizer:** Upload photo → Select style → Generate → Verify 4 AI-generated images (NOT picsum placeholders)
+2. **Quote Assistant Chat:** Start chat → Describe project → Verify sidebar shows editable facts (NO prices)
+3. **Submit Request Flow:** Click Submit → Enter contact info → Verify lead created in admin
+4. **Switch to Form:** After project type detected → Click "Switch to Form" → Submit form → Verify lead created
+5. **Mobile Layout:** On 375px viewport → Verify chat doesn't overlap anything
+6. **Quick Replies:** Click button → Verify smooth fade animation
+7. **Admin /quotes:** Navigate → Verify page loads with quote list
+8. **Admin /settings:** Navigate → Verify page loads with settings form
+9. **Run ALL E2E tests:** `npm run test:e2e`
+10. **Run ALL unit tests:** `npm run test`
+
+**Next Session Priority:**
+1. MUST run comprehensive testing of ALL features
+2. Fix any broken functionality discovered during testing
+3. Verify Gemini API key is set in `.env.local` as `GOOGLE_GENERATIVE_AI_API_KEY`
+
+---
 
 ### Session: February 2, 2026 (UAT & Security Fixes Complete)
 **Completed:**
@@ -388,16 +473,66 @@ None
 
 ## Notes for Next Session
 
-1. **Start Here:** DEV-068 Documentation
-2. **Security Complete:** Debug routes removed, admin RBAC implemented
-3. **Admin Setup:** Run Supabase migration, then: `SELECT set_admin_role('admin@redwhitereno.com');`
-4. **Manual Testing:**
-   - Cross-browser: Chrome, Safari, Firefox
-   - Mobile: Safari iOS, Chrome Android
-   - Touch target validation (44px minimum)
-5. **Performance:** Run Lighthouse audit on production URL
-6. **Deferred:** DEV-019 (SEO), DEV-020 (Google Reviews)
-7. **Production URL:** https://leadquoteenginev2.vercel.app
+### CRITICAL: Comprehensive Testing Required
+Major changes were made to visualizer, chat UI, and admin pages. ALL features must be tested.
+
+### Environment Setup Required
+```bash
+# Ensure this is in .env.local:
+GOOGLE_GENERATIVE_AI_API_KEY=<user's key>
+```
+
+### Testing Checklist (Run ALL of these)
+1. **Visualizer Image Generation:**
+   - Upload a kitchen/bathroom photo
+   - Select style and generate
+   - Verify 4 AI-generated images appear (NOT placeholder images from picsum.photos)
+   - Test download functionality
+
+2. **Quote Assistant Chat:**
+   - Start new chat at /estimate
+   - Describe project
+   - Verify sidebar shows "Your Project" (NOT "Your Estimate")
+   - Verify NO price ranges are shown to user
+   - Click edit icons, verify inline editing works
+
+3. **Submit Request Flow:**
+   - Fill in enough details to see "Submit Request" button
+   - Click it, complete contact info
+   - Verify success message
+   - Check admin dashboard for new lead
+
+4. **Switch to Form:**
+   - After project type detected, verify "Switch to Form" link appears
+   - Click it, verify form is pre-filled
+   - Submit form, verify lead created
+
+5. **Mobile Layout (375px):**
+   - Verify chat doesn't overlap footer
+   - Verify estimate card appears above input
+   - Verify all touch targets are ≥44px
+
+6. **Quick Reply Animation:**
+   - Click a quick reply button
+   - Verify smooth fade-out animation
+
+7. **Admin Pages:**
+   - Navigate to /admin/quotes - verify page loads
+   - Navigate to /admin/settings - verify page loads
+
+8. **Run Automated Tests:**
+   ```bash
+   npm run test        # Unit tests
+   npm run test:e2e    # E2E tests
+   ```
+
+### Known Good State
+- Build: Passing
+- TypeScript: No errors
+- Previous tests: 55 unit, 85 E2E passing
+
+### If Tests Fail
+Fix any broken functionality before deploying. The manual testing feedback implementation touched many core files.
 
 ---
 
@@ -405,6 +540,7 @@ None
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-02 | Manual Testing Fixes | P0-P6: Fixed visualizer (real Gemini API), removed price estimates from sidebar, added submit/form flows, fixed mobile layout, created admin quotes/settings pages |
 | 2026-02-02 | UAT & Chat Fix | DEV-067: Security fixes (debug routes, admin RBAC), Next.js 16 proxy migration, Supabase admin role setup, AI SDK v3 chat format fix |
 | 2026-02-02 | Documentation & API Verification | DEV-068: Complete documentation (README, API docs, Deployment guide, Go-live checklist). Environment variables secured and verified. OpenAI API tested and working. |
 | 2026-02-02 | UAT & Security Fixes | DEV-067: Removed debug routes, admin RBAC, console cleanup, test fixes |
