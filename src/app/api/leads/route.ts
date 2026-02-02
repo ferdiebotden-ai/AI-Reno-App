@@ -5,7 +5,95 @@ import { calculateEstimate } from '@/lib/pricing/engine';
 import { sendEmail, getOwnerEmail } from '@/lib/email/resend';
 import { LeadConfirmationEmail } from '@/emails/lead-confirmation';
 import { NewLeadNotificationEmail } from '@/emails/new-lead-notification';
-import type { LeadInsert, ProjectType, FinishLevel, Timeline, BudgetBand, Json } from '@/types/database';
+import type { LeadInsert, LeadStatus, ProjectType, FinishLevel, Timeline, BudgetBand, Json } from '@/types/database';
+
+/**
+ * Query params schema for GET /api/leads
+ */
+const LeadsQuerySchema = z.object({
+  status: z.enum(['new', 'draft_ready', 'needs_clarification', 'sent', 'won', 'lost']).optional(),
+  projectType: z.enum(['kitchen', 'bathroom', 'basement', 'flooring', 'painting', 'exterior', 'other']).optional(),
+  search: z.string().optional(),
+  sortBy: z.enum(['created_at', 'name', 'updated_at']).optional().default('created_at'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+  page: z.coerce.number().min(1).optional().default(1),
+  limit: z.coerce.number().min(1).max(100).optional().default(10),
+});
+
+/**
+ * GET /api/leads
+ * List leads with filtering, sorting, and pagination
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const params = Object.fromEntries(searchParams.entries());
+
+    const validationResult = LeadsQuerySchema.safeParse(params);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validationResult.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { status, projectType, search, sortBy, sortOrder, page, limit } = validationResult.data;
+    const offset = (page - 1) * limit;
+
+    const supabase = createServiceClient();
+
+    // Build query
+    let query = supabase
+      .from('leads')
+      .select('*', { count: 'exact' });
+
+    // Apply filters
+    if (status) {
+      query = query.eq('status', status as LeadStatus);
+    }
+    if (projectType) {
+      query = query.eq('project_type', projectType as ProjectType);
+    }
+
+    // Apply search (name, email, phone)
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+    }
+
+    // Apply sorting
+    query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: leads, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching leads:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch leads' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: leads,
+      pagination: {
+        page,
+        limit,
+        total: count ?? 0,
+        totalPages: Math.ceil((count ?? 0) / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Leads fetch error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
 
 /**
  * Lead submission schema
