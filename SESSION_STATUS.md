@@ -1,6 +1,6 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 2, 2026 (Post-Launch Bug Fixes)
+> **Last Updated:** February 2, 2026 (Navigation & Visualizer Fixes)
 > **Status:** LAUNCHED - Production Ready
 > **Current Phase:** Phase 5 - Testing & Launch (COMPLETE)
 
@@ -113,6 +113,48 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: February 2, 2026 (Navigation & Visualizer Fixes)
+**Completed:**
+- Added "Home" link to navigation menu
+- Removed HEIC from advertised supported formats in visualizer
+- Created visualizations storage bucket migration
+- Fixed pre-existing build errors (tooltip component, TypeScript issues)
+
+**Issues Fixed:**
+
+**1. Missing "Home" Navigation Link**
+- **Issue:** Navigation menu (Services, Projects, About) didn't include a "Home" link
+- **Fix:** Added `{ href: "/", label: "Home" }` as first item in `navLinks` array
+- **Files:** `src/components/header.tsx`
+
+**2. HEIC Format Advertising**
+- **Issue:** HEIC listed as supported but doesn't work reliably
+- **Fix:** Changed format text from "JPG, PNG, HEIC" to "JPG, PNG" (HEIC conversion code remains for fallback)
+- **Files:** `src/components/visualizer/photo-upload.tsx`
+
+**3. "Failed to store original image" Error**
+- **Issue:** Visualizer failed immediately with storage error - bucket didn't exist
+- **Fix:** Created SQL migration to set up `visualizations` storage bucket with policies
+- **Files:** `supabase/migrations/20260203000001_visualizations_storage.sql` (new)
+
+**Pre-existing Build Fixes:**
+- Added missing `tooltip` shadcn component
+- Fixed TypeScript type casting in `src/app/api/admin/settings/route.ts`
+- Fixed type narrowing in `src/app/admin/settings/page.tsx`
+- Fixed optional chaining in `src/components/admin/quote-editor.tsx`
+- Fixed array index access in `src/components/admin/quote-send-wizard.tsx`
+- Fixed `maxTokens` → `maxOutputTokens` in AI generation files
+
+**Supabase Migration Applied:**
+- `visualizations` storage bucket created (public, 50MB limit, jpeg/png/webp)
+- Storage policies for public read and service role write access
+
+**Next Session:**
+1. Continue monitoring for any additional bugs
+2. Test visualizer image generation end-to-end
+
+---
 
 ### Session: February 2, 2026 (Post-Launch Bug Fixes)
 **Completed:**
@@ -633,6 +675,7 @@ SELECT set_admin_role('email@example.com');
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-02 | Navigation & Visualizer Fixes | Added Home nav link, removed HEIC from formats, created visualizations storage bucket, fixed TypeScript build errors |
 | 2026-02-02 | Post-Launch Bug Fixes | Fixed HEIC uploads, chat/footer layout, quick reply persistence, submit payload structure, chat data extraction, visualizer timeout, conditional photo step, sidebar acknowledgements |
 | 2026-02-02 | Production Deployment | DEV-069 to DEV-071: Verified security bypass removed, all tests passing (55 unit, 85 E2E), go-live checklist completed, production ready |
 | 2026-02-02 | Manual Testing Fixes | P0-P6: Fixed visualizer (real Gemini API), removed price estimates from sidebar, added submit/form flows, fixed mobile layout, created admin quotes/settings pages |

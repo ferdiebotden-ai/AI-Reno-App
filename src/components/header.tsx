@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/sheet"
 
 const navLinks = [
+  { href: "/", label: "Home" },
   { href: "/services", label: "Services" },
   { href: "/projects", label: "Projects" },
   { href: "/about", label: "About" },
@@ -130,16 +132,13 @@ export function Header() {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-lg font-bold tracking-tight text-primary">
-        Red
-      </span>
-      <span className="text-lg font-bold tracking-tight text-foreground">
-        White
-      </span>
-      <span className="text-lg font-bold tracking-tight text-zinc-400">
-        Reno
-      </span>
-    </div>
+    <Image
+      src="/images/red-white-reno-logo.png"
+      alt="Red White Reno"
+      width={468}
+      height={242}
+      className="h-14 w-auto"
+      priority
+    />
   )
 }

@@ -2,8 +2,8 @@
 
 /**
  * Quote Editor
- * Full quote editor with line items, totals, and assumptions/exclusions
- * [DEV-054, DEV-055, DEV-056]
+ * Full quote editor with line items, totals, assumptions/exclusions, and AI integration
+ * [DEV-054, DEV-055, DEV-056, DEV-072]
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -20,7 +21,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { QuoteLineItem, type LineItem } from './quote-line-item';
+import { AIQuoteSuggestions } from './ai-quote-suggestions';
 import type { QuoteDraft, Json } from '@/types/database';
+import type { AIGeneratedQuote, AIQuoteLineItem } from '@/lib/schemas/ai-quote';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +32,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, Save, Loader2, FileText, AlertCircle, Download, Send, Check } from 'lucide-react';
+import {
+  Plus,
+  Save,
+  Loader2,
+  FileText,
+  AlertCircle,
+  Download,
+  Send,
+  Check,
+  Sparkles,
+  RotateCcw,
+} from 'lucide-react';
 
 // Business constants
 const HST_PERCENT = 13;
@@ -70,6 +84,7 @@ interface ParsedLineItem {
   unit?: string;
   unit_price?: number;
   total?: number;
+  isFromAI?: boolean;
 }
 
 function isLineItemObject(item: Json): item is { [key: string]: Json | undefined } {
@@ -90,6 +105,7 @@ function parseLineItems(lineItems: Json | null): LineItem[] {
         unit: parsed.unit || 'ea',
         unit_price: parsed.unit_price || 0,
         total: parsed.total || 0,
+        isFromAI: parsed.isFromAI || false,
       };
     });
 }
@@ -101,6 +117,15 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+// Extract AI quote from initialEstimate
+function extractAIQuote(estimate: Json | null): AIGeneratedQuote | null {
+  if (!estimate || typeof estimate !== 'object' || Array.isArray(estimate)) {
+    return null;
+  }
+  const obj = estimate as { aiQuote?: AIGeneratedQuote };
+  return obj.aiQuote || null;
+}
+
 export function QuoteEditor({
   leadId,
   initialQuote,
@@ -108,6 +133,9 @@ export function QuoteEditor({
   customerEmail,
   customerName,
 }: QuoteEditorProps) {
+  // Extract AI quote from initial estimate
+  const aiQuoteFromEstimate = extractAIQuote(initialEstimate);
+
   // State
   const [lineItems, setLineItems] = useState<LineItem[]>(() => {
     if (initialQuote) {
@@ -116,17 +144,29 @@ export function QuoteEditor({
     return [];
   });
 
+  const [aiQuote, setAiQuote] = useState<AIGeneratedQuote | null>(aiQuoteFromEstimate);
+  const [acceptedAIItemIds, setAcceptedAIItemIds] = useState<Set<string>>(new Set());
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
   const [contingencyPercent, setContingencyPercent] = useState(
     initialQuote?.contingency_percent ?? DEFAULT_CONTINGENCY_PERCENT
   );
 
-  const [assumptions, setAssumptions] = useState<string>(
-    (initialQuote?.assumptions || DEFAULT_ASSUMPTIONS).join('\n')
-  );
+  const [assumptions, setAssumptions] = useState<string>(() => {
+    // Use AI assumptions if available and no existing quote
+    if (!initialQuote && aiQuoteFromEstimate?.assumptions?.length) {
+      return aiQuoteFromEstimate.assumptions.join('\n');
+    }
+    return (initialQuote?.assumptions || DEFAULT_ASSUMPTIONS).join('\n');
+  });
 
-  const [exclusions, setExclusions] = useState<string>(
-    (initialQuote?.exclusions || DEFAULT_EXCLUSIONS).join('\n')
-  );
+  const [exclusions, setExclusions] = useState<string>(() => {
+    // Use AI exclusions if available and no existing quote
+    if (!initialQuote && aiQuoteFromEstimate?.exclusions?.length) {
+      return aiQuoteFromEstimate.exclusions.join('\n');
+    }
+    return (initialQuote?.exclusions || DEFAULT_EXCLUSIONS).join('\n');
+  });
 
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -153,6 +193,9 @@ export function QuoteEditor({
   const hstAmount = subtotalWithContingency * (HST_PERCENT / 100);
   const total = subtotalWithContingency + hstAmount;
   const depositRequired = total * (DEPOSIT_PERCENT / 100);
+
+  // Count AI items
+  const aiItemCount = lineItems.filter((item) => item.isFromAI).length;
 
   // Save function
   const saveQuote = useCallback(async () => {
@@ -221,6 +264,7 @@ export function QuoteEditor({
       unit: 'ea',
       unit_price: 0,
       total: 0,
+      isFromAI: false,
     };
     setLineItems([...lineItems, newItem]);
     markChanged();
@@ -228,6 +272,10 @@ export function QuoteEditor({
 
   function handleUpdateItem(index: number, updatedItem: LineItem) {
     const newItems = [...lineItems];
+    // If editing an AI item, mark it as modified
+    if (newItems[index]?.isFromAI) {
+      updatedItem.isFromAI = false; // Mark as modified
+    }
     newItems[index] = updatedItem;
     setLineItems(newItems);
     markChanged();
@@ -236,6 +284,123 @@ export function QuoteEditor({
   function handleDeleteItem(index: number) {
     const newItems = lineItems.filter((_, i) => i !== index);
     setLineItems(newItems);
+    markChanged();
+  }
+
+  // AI integration handlers
+  function handleAcceptAIItem(item: AIQuoteLineItem) {
+    const newLineItem: LineItem = {
+      id: generateId(),
+      description: item.description,
+      category: item.category as LineItem['category'],
+      quantity: 1,
+      unit: 'lot',
+      unit_price: item.total,
+      total: item.total,
+      isFromAI: true,
+    };
+    setLineItems([...lineItems, newLineItem]);
+
+    // Track accepted item
+    const itemIndex = aiQuote?.lineItems.findIndex(
+      (i) => i.description === item.description && i.total === item.total
+    );
+    if (itemIndex !== undefined && itemIndex >= 0) {
+      setAcceptedAIItemIds((prev) => new Set([...prev, `ai-${itemIndex}`]));
+    }
+
+    markChanged();
+  }
+
+  function handleAcceptAllAIItems() {
+    if (!aiQuote) return;
+
+    const newItems: LineItem[] = aiQuote.lineItems
+      .filter((_, i) => !acceptedAIItemIds.has(`ai-${i}`))
+      .map((item) => ({
+        id: generateId(),
+        description: item.description,
+        category: item.category as LineItem['category'],
+        quantity: 1,
+        unit: 'lot',
+        unit_price: item.total,
+        total: item.total,
+        isFromAI: true,
+      }));
+
+    setLineItems([...lineItems, ...newItems]);
+
+    // Mark all as accepted
+    const allIds = new Set(aiQuote.lineItems.map((_, i) => `ai-${i}`));
+    setAcceptedAIItemIds(allIds);
+
+    // Also update assumptions/exclusions from AI if not already modified
+    if (aiQuote.assumptions.length > 0) {
+      setAssumptions(aiQuote.assumptions.join('\n'));
+    }
+    if (aiQuote.exclusions.length > 0) {
+      setExclusions(aiQuote.exclusions.join('\n'));
+    }
+
+    markChanged();
+  }
+
+  async function handleRegenerateAIQuote(guidance?: string) {
+    setIsRegenerating(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/quotes/${leadId}/regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guidance }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to regenerate quote');
+      }
+
+      const data = await response.json();
+      setAiQuote(data.aiQuote);
+      setAcceptedAIItemIds(new Set()); // Reset accepted items
+    } catch (err) {
+      console.error('Error regenerating quote:', err);
+      setError(err instanceof Error ? err.message : 'Failed to regenerate quote');
+    } finally {
+      setIsRegenerating(false);
+    }
+  }
+
+  function handleResetToAI() {
+    if (!aiQuote) return;
+
+    // Clear existing items and replace with AI items
+    const aiItems: LineItem[] = aiQuote.lineItems.map((item) => ({
+      id: generateId(),
+      description: item.description,
+      category: item.category as LineItem['category'],
+      quantity: 1,
+      unit: 'lot',
+      unit_price: item.total,
+      total: item.total,
+      isFromAI: true,
+    }));
+
+    setLineItems(aiItems);
+
+    // Mark all as accepted
+    const allIds = new Set(aiQuote.lineItems.map((_, i) => `ai-${i}`));
+    setAcceptedAIItemIds(allIds);
+
+    // Reset assumptions/exclusions
+    if (aiQuote.assumptions.length > 0) {
+      setAssumptions(aiQuote.assumptions.join('\n'));
+    }
+    if (aiQuote.exclusions.length > 0) {
+      setExclusions(aiQuote.exclusions.join('\n'));
+    }
+
     markChanged();
   }
 
@@ -343,13 +508,33 @@ export function QuoteEditor({
 
   return (
     <div className="space-y-6">
+      {/* AI Quote Suggestions */}
+      {aiQuote && (
+        <AIQuoteSuggestions
+          aiQuote={aiQuote}
+          onAcceptItem={handleAcceptAIItem}
+          onAcceptAll={handleAcceptAllAIItems}
+          onRegenerate={handleRegenerateAIQuote}
+          isRegenerating={isRegenerating}
+          acceptedItemIds={acceptedAIItemIds}
+        />
+      )}
+
       {/* Line Items */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Quote Line Items
-          </CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Quote Line Items
+            </CardTitle>
+            {aiItemCount > 0 && (
+              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                <Sparkles className="h-3 w-3 mr-1" />
+                {aiItemCount} from AI
+              </Badge>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {lastSaved && (
               <span className="text-xs text-muted-foreground">
@@ -379,8 +564,8 @@ export function QuoteEditor({
             </div>
           )}
 
-          {/* Initial estimate info */}
-          {initialEstimate && !initialQuote && (
+          {/* Initial estimate info (legacy display) */}
+          {initialEstimate && !initialQuote && !aiQuote && (
             <div className="mb-4 p-3 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">
                 AI Estimate:{' '}
@@ -416,15 +601,27 @@ export function QuoteEditor({
             </Table>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4"
-            onClick={handleAddItem}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add Line Item
-          </Button>
+          <div className="flex items-center gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddItem}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Line Item
+            </Button>
+            {aiQuote && lineItems.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetToAI}
+                className="text-muted-foreground"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reset to AI Quote
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 

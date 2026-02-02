@@ -175,7 +175,7 @@ export function PhotoUpload({ value, onChange, className }: PhotoUploadProps) {
           <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <ImageIcon className="w-3 h-3" />
-              JPG, PNG, HEIC
+              JPG, PNG
             </span>
             <span className="flex items-center gap-1">
               <Camera className="w-3 h-3" />
