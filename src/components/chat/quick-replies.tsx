@@ -154,7 +154,7 @@ export function QuickReplies({
               onClick={() => handleClick(reply.label)}
               disabled={disabled || isExiting}
               className={cn(
-                'flex-shrink-0 h-9 px-4 text-sm font-medium transition-all duration-200',
+                'flex-shrink-0 h-11 px-4 text-sm font-medium transition-all duration-200',
                 'hover:bg-primary hover:text-primary-foreground',
                 // Highlight the clicked button
                 pendingValue === reply.label && 'bg-primary text-primary-foreground scale-95'

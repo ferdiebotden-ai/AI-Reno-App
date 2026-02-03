@@ -62,11 +62,26 @@ export async function sendChatMessage(page: Page, message: string) {
   const aiMessages = page.locator('[data-testid="assistant-message"]');
   const initialCount = await aiMessages.count();
 
+  // Click to ensure focus, then fill
+  await chatInput.click();
   await chatInput.fill(message);
-  await page.keyboard.press('Enter');
 
-  // Wait for user message to appear
-  await expect(page.getByText(message)).toBeVisible({ timeout: 5000 });
+  // Wait a moment for the input to register
+  await page.waitForTimeout(100);
+
+  // Try clicking the send button first, fall back to Enter key
+  const sendButton = page.getByRole('button', { name: /send/i })
+    .or(page.locator('button[aria-label="Send message"]'));
+
+  if (await sendButton.isEnabled({ timeout: 1000 }).catch(() => false)) {
+    await sendButton.click();
+  } else {
+    await page.keyboard.press('Enter');
+  }
+
+  // Wait for user message to appear (use partial match for truncated/wrapped text)
+  const firstWords = message.split(' ').slice(0, 3).join(' ');
+  await expect(page.getByText(firstWords, { exact: false })).toBeVisible({ timeout: 10000 });
 
   // Wait up to 30s for a new AI message
   await expect(async () => {

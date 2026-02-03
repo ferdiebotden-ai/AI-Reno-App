@@ -1,7 +1,18 @@
+import { redirect } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
 import { LoginForm } from '@/components/admin/login-form';
+import { createClient } from '@/lib/db/server';
 
-export default function AdminLoginPage() {
+export default async function AdminLoginPage() {
+  // Check if user is already authenticated
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // If user is already logged in, redirect to admin
+  if (user) {
+    redirect('/admin');
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-muted/30">
       <div className="w-full max-w-md">
