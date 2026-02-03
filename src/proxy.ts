@@ -11,6 +11,12 @@ export async function proxy(request: NextRequest) {
     request,
   });
 
+  // Skip auth in development mode or demo mode (for pitch presentations)
+  if (process.env['NODE_ENV'] === 'development' ||
+      process.env['NEXT_PUBLIC_DEMO_MODE'] === 'true') {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
     process.env['NEXT_PUBLIC_SUPABASE_URL']!,
     process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY']!,

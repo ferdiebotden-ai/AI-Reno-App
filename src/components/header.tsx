@@ -15,12 +15,18 @@ import {
   SheetClose,
 } from "@/components/ui/sheet"
 
-const navLinks = [
+// Base navigation links
+const baseNavLinks = [
   { href: "/", label: "Home" },
   { href: "/services", label: "Services" },
   { href: "/projects", label: "Projects" },
   { href: "/about", label: "About" },
 ] as const
+
+// Add Admin link in demo mode (for client pitch presentations)
+const navLinks = process.env['NEXT_PUBLIC_DEMO_MODE'] === 'true'
+  ? [...baseNavLinks, { href: "/admin", label: "Admin" } as const]
+  : baseNavLinks
 
 export function Header() {
   const [isOpen, setIsOpen] = React.useState(false)
