@@ -131,6 +131,11 @@ export async function navigateVisualizerToConstraints(page: Page) {
   // Click Next (use exact match to avoid Next.js dev tools)
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
+  // Step 1.5: Mode selection - click "Quick Form" to use quick mode
+  const quickFormButton = page.getByText('Quick Form');
+  await expect(quickFormButton).toBeVisible({ timeout: 5000 });
+  await quickFormButton.click();
+
   // Step 2: Select room type
   await expect(page.getByRole('button', { name: /Kitchen/i })).toBeVisible({ timeout: 5000 });
   await page.getByRole('button', { name: /Kitchen/i }).click();
