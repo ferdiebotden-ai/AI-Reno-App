@@ -5,8 +5,10 @@
  */
 
 import { NextResponse } from 'next/server';
+import { REALTIME_MODEL, TRANSCRIPTION_MODEL, VAD_CONFIG } from '@/lib/realtime/config';
 
 const OPENAI_API_KEY = process.env['OPENAI_API_KEY'];
+const USE_SEMANTIC_VAD = process.env['USE_SEMANTIC_VAD'] !== 'false';
 
 // System prompt for renovation intake voice agent
 const RENOVATION_VOICE_SYSTEM_PROMPT = `You are a friendly and professional renovation consultant for Red White Reno, a trusted renovation company in Stratford, Ontario.
@@ -56,18 +58,15 @@ export async function POST() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-realtime-preview-2024-12-17',
-        voice: 'alloy', // Options: alloy, echo, shimmer, ash, ballad, coral, sage, verse
+        model: REALTIME_MODEL,
+        voice: 'alloy',
         instructions: RENOVATION_VOICE_SYSTEM_PROMPT,
         input_audio_transcription: {
-          model: 'whisper-1',
+          model: TRANSCRIPTION_MODEL,
         },
-        turn_detection: {
-          type: 'server_vad',
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 500,
-        },
+        turn_detection: USE_SEMANTIC_VAD
+          ? VAD_CONFIG.semantic
+          : VAD_CONFIG.serverVad,
       }),
     });
 

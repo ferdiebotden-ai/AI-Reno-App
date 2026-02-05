@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import {
+  Headphones,
   Mic,
   MicOff,
   Phone,
@@ -26,6 +27,8 @@ import {
 } from 'lucide-react';
 import {
   REALTIME_CONFIG,
+  REALTIME_MODEL,
+  TRANSCRIPT_GRACE_TIMEOUT_MS,
   isVoiceSupported,
   VoiceError,
   formatDuration,
@@ -137,8 +140,13 @@ export function VoiceMode({
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
-  // Track pending user transcript to ensure correct ordering
-  const pendingUserTranscriptRef = useRef<string | null>(null);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+
+  // Buffer-and-flush refs for correct transcript ordering
+  const turnCounterRef = useRef(0);
+  const awaitingUserTranscriptRef = useRef(false);
+  const bufferedAIDeltasRef = useRef<string[]>([]);
+  const userTranscriptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Refs for WebRTC and audio
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -149,6 +157,7 @@ export function VoiceMode({
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollSentinelRef = useRef<HTMLDivElement>(null);
 
   // Check support and API config on mount - start as null (loading)
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
@@ -164,17 +173,11 @@ export function VoiceMode({
       .catch(() => setIsApiConfigured(false));
   }, []);
 
-  // Auto-scroll transcript - access Radix ScrollArea viewport
+  // Auto-scroll transcript using sentinel element
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollSentinelRef.current) {
       requestAnimationFrame(() => {
-        const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-        if (viewport) {
-          viewport.scrollTo({
-            top: viewport.scrollHeight,
-            behavior: 'smooth',
-          });
-        }
+        scrollSentinelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       });
     }
   }, [transcript]);
@@ -185,6 +188,15 @@ export function VoiceMode({
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
     }
+
+    if (userTranscriptTimeoutRef.current) {
+      clearTimeout(userTranscriptTimeoutRef.current);
+      userTranscriptTimeoutRef.current = null;
+    }
+
+    // Reset buffer state
+    awaitingUserTranscriptRef.current = false;
+    bufferedAIDeltasRef.current = [];
 
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
@@ -345,7 +357,7 @@ export function VoiceMode({
 
       // Connect to OpenAI Realtime API
       const sdpResponse = await fetch(
-        'https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
+        `https://api.openai.com/v1/realtime?model=${REALTIME_MODEL}`,
         {
           method: 'POST',
           headers: {
@@ -387,24 +399,74 @@ export function VoiceMode({
     }
   }, [isSupported, isApiConfigured, cleanup]);
 
+  // Helper: append AI delta text to transcript
+  const appendAIDelta = useCallback((delta: string) => {
+    setTranscript((prev) => {
+      const lastMsg = prev[prev.length - 1];
+      if (lastMsg?.isPartial && lastMsg.role === 'assistant') {
+        return [
+          ...prev.slice(0, -1),
+          { ...lastMsg, content: lastMsg.content + delta },
+        ];
+      }
+      return [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: delta,
+          timestamp: new Date(),
+          isPartial: true,
+        },
+      ];
+    });
+  }, []);
+
+  // Helper: flush all buffered AI deltas into transcript
+  const flushBufferedDeltas = useCallback(() => {
+    const deltas = bufferedAIDeltasRef.current;
+    if (deltas.length > 0) {
+      const combined = deltas.join('');
+      bufferedAIDeltasRef.current = [];
+      appendAIDelta(combined);
+    }
+    awaitingUserTranscriptRef.current = false;
+  }, [appendAIDelta]);
+
   // Handle realtime events from OpenAI
   const handleRealtimeEvent = useCallback((event: Record<string, unknown>) => {
     const eventType = event['type'] as string;
 
     switch (eventType) {
       case 'input_audio_buffer.speech_started':
+        // New turn: increment counter, start awaiting user transcript
+        turnCounterRef.current += 1;
+        awaitingUserTranscriptRef.current = true;
+        bufferedAIDeltasRef.current = [];
+        // Clear any pending grace timeout
+        if (userTranscriptTimeoutRef.current) {
+          clearTimeout(userTranscriptTimeoutRef.current);
+          userTranscriptTimeoutRef.current = null;
+        }
         setState('listening');
         break;
 
       case 'input_audio_buffer.speech_stopped':
+        // Start grace timeout — if user transcript doesn't arrive, flush anyway
+        userTranscriptTimeoutRef.current = setTimeout(() => {
+          flushBufferedDeltas();
+        }, TRANSCRIPT_GRACE_TIMEOUT_MS);
         setState('processing');
         break;
 
-      case 'conversation.item.input_audio_transcription.completed':
-        // User's speech transcribed - store it and add immediately
+      case 'conversation.item.input_audio_transcription.completed': {
+        // User transcript arrived — add it, clear timeout, flush buffered AI deltas
         const userTranscript = event['transcript'] as string;
+        if (userTranscriptTimeoutRef.current) {
+          clearTimeout(userTranscriptTimeoutRef.current);
+          userTranscriptTimeoutRef.current = null;
+        }
         if (userTranscript) {
-          pendingUserTranscriptRef.current = userTranscript;
           setTranscript((prev) => [
             ...prev.filter((m) => !m.isPartial || m.role !== 'user'),
             {
@@ -415,52 +477,25 @@ export function VoiceMode({
             },
           ]);
         }
+        flushBufferedDeltas();
         break;
+      }
 
-      case 'response.audio_transcript.delta':
-        // Partial AI response - ensure user transcript appears first
+      case 'response.audio_transcript.delta': {
         const delta = event['delta'] as string;
-        setTranscript((prev) => {
-          // If we have a pending user transcript that hasn't been added, add it first
-          let updated = [...prev];
-          if (pendingUserTranscriptRef.current) {
-            const hasUserTranscript = updated.some(
-              m => m.role === 'user' && m.content === pendingUserTranscriptRef.current
-            );
-            if (!hasUserTranscript) {
-              updated.push({
-                id: crypto.randomUUID(),
-                role: 'user',
-                content: pendingUserTranscriptRef.current,
-                timestamp: new Date(),
-              });
-            }
-            pendingUserTranscriptRef.current = null;
-          }
-
-          const lastMsg = updated[updated.length - 1];
-          if (lastMsg?.isPartial && lastMsg.role === 'assistant') {
-            return [
-              ...updated.slice(0, -1),
-              { ...lastMsg, content: lastMsg.content + delta },
-            ];
-          }
-          return [
-            ...updated,
-            {
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              content: delta,
-              timestamp: new Date(),
-              isPartial: true,
-            },
-          ];
-        });
+        if (awaitingUserTranscriptRef.current) {
+          // Buffer AI deltas until user transcript arrives
+          bufferedAIDeltasRef.current.push(delta);
+        } else {
+          // User transcript already in — render immediately
+          appendAIDelta(delta);
+        }
         setState('speaking');
         break;
+      }
 
       case 'response.audio_transcript.done':
-        // AI response complete
+        // AI response complete — finalize partial messages
         setTranscript((prev) =>
           prev.map((m) => (m.isPartial ? { ...m, isPartial: false } : m))
         );
@@ -477,7 +512,7 @@ export function VoiceMode({
         setState('error');
         break;
     }
-  }, []);
+  }, [appendAIDelta, flushBufferedDeltas]);
 
 
   // Toggle mute
@@ -491,13 +526,28 @@ export function VoiceMode({
     }
   }, [isMuted]);
 
-  // End conversation and pass transcript
-  const handleEndConversation = useCallback(() => {
+  // Submit transcript and end
+  const handleSubmitAndEnd = useCallback(() => {
     disconnect();
     if (transcript.length > 0) {
       onTranscriptComplete(transcript);
     }
   }, [disconnect, transcript, onTranscriptComplete]);
+
+  // End call without submitting — show confirm if there's a transcript
+  const handleEndOnly = useCallback(() => {
+    if (transcript.length > 0) {
+      setShowSubmitConfirm(true);
+    } else {
+      disconnect();
+    }
+  }, [disconnect, transcript]);
+
+  // End without submitting (from confirm dialog)
+  const handleEndWithoutSubmit = useCallback(() => {
+    setShowSubmitConfirm(false);
+    disconnect();
+  }, [disconnect]);
 
   const isConnected = state === 'connected' || state === 'listening' || state === 'processing' || state === 'speaking';
   const showVisualizer = isConnected && !isMuted;
@@ -551,7 +601,7 @@ export function VoiceMode({
   }
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
+    <div className={cn('flex flex-col h-full max-h-[100dvh]', className)}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
@@ -587,16 +637,16 @@ export function VoiceMode({
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col p-4 gap-4">
+      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 min-h-0">
         {/* Status display */}
         {state === 'idle' && (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <div className="w-24 h-24 rounded-full bg-[#D32F2F]/10 flex items-center justify-center mb-4">
-              <Mic className="h-12 w-12 text-[#D32F2F]" />
+              <Headphones className="h-12 w-12 text-[#D32F2F]" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Ready to Talk?</h3>
+            <h3 className="text-lg font-semibold mb-2">Talk to Our Renovation Expert</h3>
             <p className="text-sm text-muted-foreground max-w-sm mb-6">
-              Click start to describe your renovation project using your voice. Our AI assistant will guide you through the process.
+              Have a natural voice conversation about your project. Our expert will ask about your vision, room details, and timeline — then prepare a personalized estimate.
             </p>
             <Button
               size="lg"
@@ -654,7 +704,7 @@ export function VoiceMode({
             </div>
 
             {/* Transcript */}
-            <ScrollArea ref={scrollRef} className="flex-1 border rounded-lg">
+            <ScrollArea ref={scrollRef} className="flex-1 min-h-0 border rounded-lg">
               <div className="p-4 space-y-3">
                 {transcript.length === 0 ? (
                   <p className="text-center text-muted-foreground text-sm py-8">
@@ -671,7 +721,7 @@ export function VoiceMode({
                     >
                       <div
                         className={cn(
-                          'max-w-[85%] rounded-2xl px-4 py-2 text-sm',
+                          'max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-2 md:py-3 text-sm md:text-base',
                           'break-words overflow-hidden',
                           msg.role === 'user'
                             ? 'bg-[#D32F2F] text-white rounded-br-md'
@@ -684,47 +734,77 @@ export function VoiceMode({
                     </div>
                   ))
                 )}
+                <div ref={scrollSentinelRef} aria-hidden="true" className="h-px" />
               </div>
             </ScrollArea>
 
             {/* Controls */}
-            <div className="flex flex-col items-center gap-3 py-2">
-              <div className="flex items-center justify-center gap-4">
+            <div className="flex flex-col items-center gap-3 py-2 md:py-4 pb-[env(safe-area-inset-bottom)]">
+              {/* Primary CTA: Submit & Get Quote */}
+              {transcript.length > 0 && !showSubmitConfirm && (
                 <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-12 w-12 rounded-full"
-                  onClick={toggleMute}
-                >
-                  {isMuted ? (
-                    <MicOff className="h-5 w-5" />
-                  ) : (
-                    <Mic className="h-5 w-5" />
-                  )}
-                </Button>
-
-                <Button
-                  variant="destructive"
                   size="lg"
-                  className="rounded-full px-6"
-                  onClick={handleEndConversation}
-                >
-                  <PhoneOff className="h-5 w-5 mr-2" />
-                  End Call
-                </Button>
-              </div>
-
-              {/* Submit transcript button - prominent when there's content */}
-              {transcript.length > 0 && (
-                <Button
-                  variant="default"
-                  size="lg"
-                  className="rounded-full px-6 bg-[#D32F2F] hover:bg-[#B71C1C] w-full max-w-xs"
-                  onClick={handleEndConversation}
+                  className="w-full max-w-xs h-12 text-base font-semibold bg-[#D32F2F] hover:bg-[#B71C1C]"
+                  onClick={handleSubmitAndEnd}
                 >
                   <Send className="h-5 w-5 mr-2" />
-                  Submit Transcript ({transcript.filter(m => m.role === 'user').length} messages)
+                  Submit &amp; Get Quote ({transcript.filter(m => m.role === 'user').length} messages)
                 </Button>
+              )}
+
+              {/* Inline confirmation when ending with transcript */}
+              {showSubmitConfirm && (
+                <div className="w-full max-w-xs space-y-2 text-center">
+                  <p className="text-sm font-medium">Ready to get your quote?</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleEndWithoutSubmit}
+                    >
+                      No thanks, just end
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1 bg-[#D32F2F] hover:bg-[#B71C1C]"
+                      onClick={() => {
+                        setShowSubmitConfirm(false);
+                        handleSubmitAndEnd();
+                      }}
+                    >
+                      Submit &amp; Get Quote
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Secondary controls: Mute + End Call */}
+              {!showSubmitConfirm && (
+                <div className="flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-12 w-12 rounded-full"
+                    onClick={toggleMute}
+                  >
+                    {isMuted ? (
+                      <MicOff className="h-5 w-5" />
+                    ) : (
+                      <Mic className="h-5 w-5" />
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    className="rounded-full px-6"
+                    onClick={handleEndOnly}
+                  >
+                    <PhoneOff className="h-5 w-5 mr-2" />
+                    End Call
+                  </Button>
+                </div>
               )}
             </div>
           </>

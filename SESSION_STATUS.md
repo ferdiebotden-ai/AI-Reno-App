@@ -1,6 +1,6 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 5, 2026 (Pre-Deployment Hardening & Full Sync)
+> **Last Updated:** February 5, 2026 (Voice Chat Overhaul & Admin Demo Link)
 > **Status:** LAUNCHED - Production Ready & Deployed
 > **Current Phase:** Phase 5 - Testing & Launch (COMPLETE) + Visualizer Enhancement (7 Phases COMPLETE)
 
@@ -113,6 +113,34 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: February 5, 2026 (Voice Chat Overhaul & Admin Demo Link)
+**Completed:**
+- Voice mode overhaul: 6-phase implementation (config, model upgrade, transcript ordering, scroll fix, UX redesign, tablet layout)
+- Upgraded OpenAI Realtime model: `gpt-4o-realtime-preview-2024-12-17` → `gpt-realtime` (GA)
+- Upgraded transcription: `whisper-1` → `gpt-4o-transcribe` (lower word error rate)
+- Upgraded VAD: `server_vad` → `semantic_vad` with `eagerness: 'low'` (AI-based end-of-thought detection)
+- Fixed transcript ordering: buffer-and-flush pattern with 500ms grace timeout ensures user text always appears before AI response
+- Fixed transcript scroll: `min-h-0` on flex containers + `scrollIntoView` sentinel pattern
+- Redesigned voice button: pill-shaped "Talk" with Headphones icon + tooltip (distinct from dictation)
+- Redesigned submit flow: "Submit & Get Quote" primary CTA, demoted "End Call" with inline confirmation
+- Added iPad/tablet layout: `max-h-[100dvh]`, safe-area insets, responsive transcript bubbles
+- Admin link always visible in header nav (demo mode — no login blocker)
+- Deployed to Vercel production
+
+**Decisions Made:**
+- Semantic VAD chosen over server_vad to fix "cutting off mid-thought" problem
+- Admin link ungated from NEXT_PUBLIC_DEMO_MODE for demo purposes (re-gate before production)
+
+**Blockers:**
+- RESEND_API_KEY still needed for email functionality
+
+**Next Session:**
+1. Add RESEND_API_KEY to Vercel for email functionality
+2. Re-gate admin link behind auth before production handoff
+3. Client demo preparation and walkthrough
+
+---
 
 ### Session: February 5, 2026 (Pre-Deployment Hardening & Full Sync)
 **Completed:**
@@ -447,6 +475,7 @@ SELECT set_admin_role('email@example.com');
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-05 | Voice Chat Overhaul | GA model upgrade, semantic VAD, transcript ordering fix, scroll fix, UX redesign, tablet layout, admin demo link |
 | 2026-02-05 | Pre-Deployment Hardening | Error boundaries, admin layout fix, AI error handling, service client guard, E2E fixes, full source sync, Vercel deploy |
 | 2026-02-05 | Enhanced Loading Experiences | Reusable StepProgress + PdfSkeleton components, multi-step progress in submit modal and quote send wizard |
 | 2026-02-05 | AI Visualizer World-Class Enhancement | Complete 7-phase visualizer enhancement: prompt engineering, photo analysis, conversation mode, database schema, admin integration, validation, metrics |

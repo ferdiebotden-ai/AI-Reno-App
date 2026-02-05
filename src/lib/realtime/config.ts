@@ -4,6 +4,27 @@
  * [DEV-075]
  */
 
+// Model constants
+export const REALTIME_MODEL = 'gpt-realtime';
+export const TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
+
+// VAD configuration options
+export const VAD_CONFIG = {
+  semantic: {
+    type: 'semantic_vad' as const,
+    eagerness: 'low' as const,
+  },
+  serverVad: {
+    type: 'server_vad' as const,
+    threshold: 0.6,
+    prefix_padding_ms: 500,
+    silence_duration_ms: 1000,
+  },
+};
+
+// Grace timeout for buffering AI deltas while awaiting user transcript
+export const TRANSCRIPT_GRACE_TIMEOUT_MS = 500;
+
 // WebRTC configuration for OpenAI Realtime
 export const REALTIME_CONFIG = {
   // API endpoint for session creation

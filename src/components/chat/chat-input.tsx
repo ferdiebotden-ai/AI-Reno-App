@@ -9,7 +9,13 @@
 import { useState, useRef, type KeyboardEvent, type ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ImagePlus, Send, X, Mic } from 'lucide-react';
+import { ImagePlus, Send, X, Headphones } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
@@ -163,19 +169,28 @@ export function ChatInput({
           data-testid="chat-input"
         />
 
-        {/* Voice button */}
+        {/* Voice button — pill-shaped "Talk" */}
         {showVoiceButton && onVoiceModeToggle && (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onVoiceModeToggle}
-            disabled={disabled}
-            size="icon"
-            className="h-10 w-10 shrink-0 text-[#D32F2F] hover:text-[#B71C1C] hover:bg-[#D32F2F]/10"
-            aria-label="Switch to voice mode"
-          >
-            <Mic className="h-5 w-5" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onVoiceModeToggle}
+                  disabled={disabled}
+                  className="h-10 shrink-0 rounded-full px-3 text-[#D32F2F] border-[#D32F2F]/30 hover:text-[#B71C1C] hover:bg-[#D32F2F]/10"
+                  aria-label="Have a voice conversation with our renovation expert"
+                >
+                  <Headphones className="h-4 w-4 mr-1.5" />
+                  Talk
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Have a voice conversation with our renovation expert</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         {/* Send button */}

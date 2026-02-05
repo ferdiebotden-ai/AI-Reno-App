@@ -21,7 +21,7 @@ import { SubmitRequestModal } from './submit-request-modal';
 import { ProjectFormModal } from './project-form-modal';
 import { VoiceMode } from './voice-mode';
 import { compressImage, fileToBase64 } from '@/lib/utils/image';
-import { Save, FileText, Send, Mic } from 'lucide-react';
+import { Save, FileText, Send, Headphones } from 'lucide-react';
 import type { TranscriptMessage } from '@/lib/realtime/config';
 
 // Helper to extract text content from UIMessage parts
@@ -591,7 +591,7 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
     <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden bg-background">
       {/* Voice Mode Overlay */}
       {isVoiceMode && (
-        <div className="absolute inset-0 z-50 bg-background lg:relative lg:flex-1">
+        <div className="absolute inset-0 z-50 bg-background md:p-4 lg:relative lg:flex-1">
           <VoiceMode
             onTranscriptComplete={handleVoiceTranscriptComplete}
             onSwitchToText={() => setIsVoiceMode(false)}
@@ -614,8 +614,8 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
                 onClick={handleVoiceModeToggle}
                 className="text-[#D32F2F] border-[#D32F2F]/30 hover:bg-[#D32F2F]/10"
               >
-                <Mic className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Voice</span>
+                <Headphones className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Talk to Expert</span>
               </Button>
               {showSaveButton && (
                 <Button
