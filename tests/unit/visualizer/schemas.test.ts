@@ -146,6 +146,9 @@ describe('Visualization Schemas', () => {
         perspectiveNotes: 'wide angle from doorway, standing height',
         preservationConstraints: ['window positions', 'plumbing rough-in'],
         confidenceScore: 0.85,
+        currentStyle: null,
+        estimatedDimensions: null,
+        potentialFocalPoints: null,
       };
       expect(() => VisualizationRoomAnalysisSchema.parse(validAnalysis)).not.toThrow();
     });
@@ -179,6 +182,9 @@ describe('Visualization Schemas', () => {
         perspectiveNotes: 'front view',
         preservationConstraints: [],
         confidenceScore: 1.5,
+        currentStyle: null,
+        estimatedDimensions: null,
+        potentialFocalPoints: null,
       };
       expect(() => VisualizationRoomAnalysisSchema.parse(invalid)).toThrow();
 
@@ -196,6 +202,9 @@ describe('Visualization Schemas', () => {
         perspectiveNotes: 'front view',
         preservationConstraints: [],
         confidenceScore: 0.8,
+        currentStyle: null,
+        estimatedDimensions: null,
+        potentialFocalPoints: null,
       };
 
       ['excellent', 'good', 'dated', 'needs_renovation'].forEach(condition => {

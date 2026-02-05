@@ -1,4 +1,8 @@
+"use client"
+
+import { usePathname } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Facebook, Instagram, Mail, MapPin, Phone } from "lucide-react"
 
 const quickLinks = [
@@ -9,14 +13,20 @@ const quickLinks = [
 ]
 
 const services = [
-  { href: "/services/kitchen", label: "Kitchen Renovation" },
-  { href: "/services/bathroom", label: "Bathroom Renovation" },
-  { href: "/services/basement", label: "Basement Finishing" },
-  { href: "/services/flooring", label: "Flooring" },
+  { href: "/services/kitchen", label: "Kitchens" },
+  { href: "/services/bathroom", label: "Bathrooms" },
+  { href: "/services/basement", label: "Basements" },
+  { href: "/services/outdoor", label: "Outdoor" },
 ]
 
 export function Footer() {
+  const pathname = usePathname()
   const currentYear = new Date().getFullYear()
+
+  // Hide public footer on admin routes
+  if (pathname.startsWith('/admin')) {
+    return null
+  }
 
   return (
     <footer className="border-t border-border bg-muted/30">
@@ -27,11 +37,11 @@ export function Footer() {
             <Logo />
             <p className="text-sm text-muted-foreground">
               Professional renovation services in Stratford, Ontario.
-              Transforming homes with quality craftsmanship since 2015.
+              Building trust with quality work.
             </p>
             <div className="flex gap-4">
               <a
-                href="https://facebook.com"
+                href="https://www.facebook.com/Red-White-Reno-106755566014063"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
@@ -40,7 +50,7 @@ export function Footer() {
                 <Facebook className="size-5" />
               </a>
               <a
-                href="https://instagram.com"
+                href="https://www.instagram.com/redwhiterenoinc/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
@@ -97,24 +107,24 @@ export function Footer() {
             <ul className="space-y-3">
               <li className="flex items-start gap-3 text-sm text-muted-foreground">
                 <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
-                <span>123 Ontario Street<br />Stratford, ON N5A 3H1</span>
+                <span>Stratford, Ontario, Canada</span>
               </li>
               <li>
                 <a
-                  href="tel:+15195551234"
+                  href="tel:519-301-9140"
                   className="flex items-center gap-3 text-sm text-muted-foreground transition-colors hover:text-primary"
                 >
                   <Phone className="size-4 shrink-0 text-primary" />
-                  (519) 555-1234
+                  519-301-9140
                 </a>
               </li>
               <li>
                 <a
-                  href="mailto:info@redwhitereno.ca"
+                  href="mailto:clodagh@redwhitereno.com"
                   className="flex items-center gap-3 text-sm text-muted-foreground transition-colors hover:text-primary"
                 >
                   <Mail className="size-4 shrink-0 text-primary" />
-                  info@redwhitereno.ca
+                  clodagh@redwhitereno.com
                 </a>
               </li>
             </ul>
@@ -140,16 +150,12 @@ export function Footer() {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-lg font-bold tracking-tight text-primary">
-        Red
-      </span>
-      <span className="text-lg font-bold tracking-tight text-foreground">
-        White
-      </span>
-      <span className="text-lg font-bold tracking-tight text-zinc-400">
-        Reno
-      </span>
-    </div>
+    <Image
+      src="/images/red-white-reno-logo.png"
+      alt="Red White Reno"
+      width={468}
+      height={242}
+      className="h-14 w-auto"
+    />
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Menu } from "lucide-react"
@@ -30,6 +31,12 @@ const navLinks = process.env['NEXT_PUBLIC_DEMO_MODE'] === 'true'
 
 export function Header() {
   const [isOpen, setIsOpen] = React.useState(false)
+  const pathname = usePathname()
+
+  // Hide public header on admin routes
+  if (pathname.startsWith('/admin')) {
+    return null
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">

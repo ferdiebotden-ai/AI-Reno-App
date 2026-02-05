@@ -12,17 +12,18 @@ import { z } from 'zod';
 /**
  * Analyze a room photo to identify room type and features
  */
-export async function analyzeRoomPhoto(imageBase64: string): Promise<RoomAnalysis> {
-  const result = await generateObject({
-    model: openai(AI_CONFIG.openai.vision),
-    schema: RoomAnalysisSchema,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `Analyze this room photo to help with a renovation estimate. Identify:
+export async function analyzeRoomPhoto(imageBase64: string): Promise<RoomAnalysis | { error: string }> {
+  try {
+    const result = await generateObject({
+      model: openai(AI_CONFIG.openai.vision),
+      schema: RoomAnalysisSchema,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Analyze this room photo to help with a renovation estimate. Identify:
 
 1. The room type (kitchen, bathroom, bedroom, living_room, basement, exterior, or other)
 2. Your confidence level (0 to 1) in identifying the room
@@ -33,19 +34,25 @@ export async function analyzeRoomPhoto(imageBase64: string): Promise<RoomAnalysi
 7. Any potential challenges for renovation (visible issues, layout constraints)
 
 Be specific about features and realistic about condition assessment.`,
-          },
-          {
-            type: 'image',
-            image: imageBase64,
-          },
-        ],
-      },
-    ],
-    maxOutputTokens: AI_CONFIG.parameters.vision.maxTokens,
-    temperature: AI_CONFIG.parameters.vision.temperature,
-  });
+            },
+            {
+              type: 'image',
+              image: imageBase64,
+            },
+          ],
+        },
+      ],
+      maxOutputTokens: AI_CONFIG.parameters.vision.maxTokens,
+      temperature: AI_CONFIG.parameters.vision.temperature,
+    });
 
-  return result.object;
+    return result.object;
+  } catch (error) {
+    console.error('Failed to analyze room photo:', error);
+    return {
+      error: error instanceof Error ? error.message : 'Failed to analyze the photo. Please try again.',
+    };
+  }
 }
 
 /**
@@ -54,33 +61,40 @@ Be specific about features and realistic about condition assessment.`,
 export async function detectRoomType(imageBase64: string): Promise<{
   roomType: string;
   confidence: number;
-}> {
-  const result = await generateObject({
-    model: openai(AI_CONFIG.openai.vision),
-    schema: z.object({
-      roomType: z.enum(['kitchen', 'bathroom', 'bedroom', 'living_room', 'basement', 'exterior', 'other']),
-      confidence: z.number().min(0).max(1),
-    }),
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: 'What type of room is shown in this photo? Provide the room type and your confidence level (0-1).',
-          },
-          {
-            type: 'image',
-            image: imageBase64,
-          },
-        ],
-      },
-    ],
-    maxOutputTokens: 100,
-    temperature: 0.3,
-  });
+} | { error: string }> {
+  try {
+    const result = await generateObject({
+      model: openai(AI_CONFIG.openai.vision),
+      schema: z.object({
+        roomType: z.enum(['kitchen', 'bathroom', 'bedroom', 'living_room', 'basement', 'exterior', 'other']),
+        confidence: z.number().min(0).max(1),
+      }),
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'What type of room is shown in this photo? Provide the room type and your confidence level (0-1).',
+            },
+            {
+              type: 'image',
+              image: imageBase64,
+            },
+          ],
+        },
+      ],
+      maxOutputTokens: 100,
+      temperature: 0.3,
+    });
 
-  return result.object;
+    return result.object;
+  } catch (error) {
+    console.error('Failed to detect room type:', error);
+    return {
+      error: error instanceof Error ? error.message : 'Failed to detect room type. Please try again.',
+    };
+  }
 }
 
 /**
@@ -90,51 +104,59 @@ export async function validateRoomImage(imageBase64: string): Promise<{
   isValid: boolean;
   reason?: string;
 }> {
-  const result = await generateObject({
-    model: openai(AI_CONFIG.openai.vision),
-    schema: z.object({
-      isRoomPhoto: z.boolean(),
-      isAppropriate: z.boolean(),
-      reason: z.string().optional(),
-    }),
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `Is this image:
+  try {
+    const result = await generateObject({
+      model: openai(AI_CONFIG.openai.vision),
+      schema: z.object({
+        isRoomPhoto: z.boolean(),
+        isAppropriate: z.boolean(),
+        reason: z.string().optional(),
+      }),
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Is this image:
 1. A photo of a room interior or exterior (for renovation purposes)
 2. Appropriate content (not offensive, not a screenshot, not text-only)
 
 If it's not suitable, explain why briefly.`,
-          },
-          {
-            type: 'image',
-            image: imageBase64,
-          },
-        ],
-      },
-    ],
-    maxOutputTokens: 100,
-    temperature: 0.2,
-  });
+            },
+            {
+              type: 'image',
+              image: imageBase64,
+            },
+          ],
+        },
+      ],
+      maxOutputTokens: 100,
+      temperature: 0.2,
+    });
 
-  const { isRoomPhoto, isAppropriate, reason } = result.object;
+    const { isRoomPhoto, isAppropriate, reason } = result.object;
 
-  if (!isRoomPhoto) {
+    if (!isRoomPhoto) {
+      return {
+        isValid: false,
+        reason: reason || 'This doesn\'t appear to be a room photo. Please upload a photo of the space you want to renovate.',
+      };
+    }
+
+    if (!isAppropriate) {
+      return {
+        isValid: false,
+        reason: reason || 'Please upload a clear photo of your room.',
+      };
+    }
+
+    return { isValid: true };
+  } catch (error) {
+    console.error('Failed to validate room image:', error);
     return {
       isValid: false,
-      reason: reason || 'This doesn\'t appear to be a room photo. Please upload a photo of the space you want to renovate.',
+      reason: 'Unable to validate the image. Please try uploading again.',
     };
   }
-
-  if (!isAppropriate) {
-    return {
-      isValid: false,
-      reason: reason || 'Please upload a clear photo of your room.',
-    };
-  }
-
-  return { isValid: true };
 }

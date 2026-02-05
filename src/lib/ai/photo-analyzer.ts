@@ -87,16 +87,17 @@ export async function analyzeRoomPhotoForVisualization(
     ? `The user has indicated this is a ${hintedRoomType.replace('_', ' ')}.`
     : '';
 
-  const result = await generateObject({
-    model: openai(AI_CONFIG.openai.vision),
-    schema: VisualizationRoomAnalysisSchema,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `You are analyzing a room photo for an AI renovation visualization system. Your analysis will be used to construct prompts for image generation, so accuracy is critical.
+  try {
+    const result = await generateObject({
+      model: openai(AI_CONFIG.openai.vision),
+      schema: VisualizationRoomAnalysisSchema,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `You are analyzing a room photo for an AI renovation visualization system. Your analysis will be used to construct prompts for image generation, so accuracy is critical.
 
 ${roomTypeHint}
 
@@ -153,19 +154,25 @@ Analyze this room photo and provide:
 12. **Potential Focal Points** (optional): Elements that could be highlighted in renovation.
 
 Be specific and technical. This analysis directly impacts visualization quality.`,
-          },
-          {
-            type: 'image',
-            image: imageBase64,
-          },
-        ],
-      },
-    ],
-    maxOutputTokens: 1500,
-    temperature: 0.3, // Low temperature for more consistent, accurate analysis
-  });
+            },
+            {
+              type: 'image',
+              image: imageBase64,
+            },
+          ],
+        },
+      ],
+      maxOutputTokens: 1500,
+      temperature: 0.3, // Low temperature for more consistent, accurate analysis
+    });
 
-  return result.object;
+    return result.object;
+  } catch (error) {
+    console.error('Failed to analyze room photo for visualization:', error);
+    throw new Error(
+      `Photo analysis failed: ${error instanceof Error ? error.message : 'Unable to analyze photo. Please try again.'}`
+    );
+  }
 }
 
 /**
@@ -178,53 +185,63 @@ export async function quickPhotoAnalysis(imageBase64: string): Promise<{
   issues?: string[];
   confidence: number;
 }> {
-  const result = await generateObject({
-    model: openai(AI_CONFIG.openai.vision),
-    schema: z.object({
-      roomType: z.enum([
-        'kitchen',
-        'bathroom',
-        'living_room',
-        'bedroom',
-        'basement',
-        'dining_room',
-        'exterior',
-        'other',
-      ]),
-      isValid: z.boolean(),
-      issues: z.array(z.string()).nullable(),
-      confidence: z.number().min(0).max(1),
-    }),
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `Quickly analyze this image for renovation visualization:
+  try {
+    const result = await generateObject({
+      model: openai(AI_CONFIG.openai.vision),
+      schema: z.object({
+        roomType: z.enum([
+          'kitchen',
+          'bathroom',
+          'living_room',
+          'bedroom',
+          'basement',
+          'dining_room',
+          'exterior',
+          'other',
+        ]),
+        isValid: z.boolean(),
+        issues: z.array(z.string()).nullable(),
+        confidence: z.number().min(0).max(1),
+      }),
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Quickly analyze this image for renovation visualization:
 
 1. What room type is this?
 2. Is this a valid room photo for visualization? (not a screenshot, not blurry, shows actual room interior)
 3. Any issues? (poor lighting, too much clutter, partial view only)
 4. Your confidence level (0-1)`,
-          },
-          {
-            type: 'image',
-            image: imageBase64,
-          },
-        ],
-      },
-    ],
-    maxOutputTokens: 200,
-    temperature: 0.2,
-  });
+            },
+            {
+              type: 'image',
+              image: imageBase64,
+            },
+          ],
+        },
+      ],
+      maxOutputTokens: 200,
+      temperature: 0.2,
+    });
 
-  return result.object as {
-    roomType: RoomType | 'exterior' | 'other';
-    isValid: boolean;
-    issues?: string[];
-    confidence: number;
-  };
+    return result.object as {
+      roomType: RoomType | 'exterior' | 'other';
+      isValid: boolean;
+      issues?: string[];
+      confidence: number;
+    };
+  } catch (error) {
+    console.error('Failed quick photo analysis:', error);
+    return {
+      roomType: 'other' as RoomType,
+      isValid: false,
+      issues: ['Unable to analyze photo. Please try uploading again.'],
+      confidence: 0,
+    };
+  }
 }
 
 /**
@@ -242,40 +259,51 @@ export async function extractDesignIntent(
   budgetIndicators: string[];
   confidence: number;
 }> {
-  const result = await generateObject({
-    model: openai(AI_CONFIG.openai.chat),
-    schema: z.object({
-      desiredChanges: z.array(z.string()).describe('Specific changes the user wants'),
-      constraintsToPreserve: z.array(z.string()).describe('Elements they want to keep'),
-      stylePreference: z.string().nullable().describe('Overall style if mentioned'),
-      materialPreferences: z.array(z.string()).describe('Specific materials mentioned'),
-      budgetIndicators: z.array(z.string()).describe('Budget-related mentions'),
-      confidence: z.number().min(0).max(1),
-    }),
-    messages: [
-      {
-        role: 'system',
-        content: `You are analyzing a user's renovation description to extract design intent for a ${roomType || 'room'} visualization. Extract specific, actionable design preferences.`,
-      },
-      {
-        role: 'user',
-        content: userDescription,
-      },
-    ],
-    maxOutputTokens: 500,
-    temperature: 0.3,
-  });
+  try {
+    const result = await generateObject({
+      model: openai(AI_CONFIG.openai.chat),
+      schema: z.object({
+        desiredChanges: z.array(z.string()).describe('Specific changes the user wants'),
+        constraintsToPreserve: z.array(z.string()).describe('Elements they want to keep'),
+        stylePreference: z.string().nullable().describe('Overall style if mentioned'),
+        materialPreferences: z.array(z.string()).describe('Specific materials mentioned'),
+        budgetIndicators: z.array(z.string()).describe('Budget-related mentions'),
+        confidence: z.number().min(0).max(1),
+      }),
+      messages: [
+        {
+          role: 'system',
+          content: `You are analyzing a user's renovation description to extract design intent for a ${roomType || 'room'} visualization. Extract specific, actionable design preferences.`,
+        },
+        {
+          role: 'user',
+          content: userDescription,
+        },
+      ],
+      maxOutputTokens: 500,
+      temperature: 0.3,
+    });
 
-  // Handle exactOptionalPropertyTypes by conditionally including optional fields
-  const base = {
-    desiredChanges: result.object.desiredChanges,
-    constraintsToPreserve: result.object.constraintsToPreserve,
-    materialPreferences: result.object.materialPreferences,
-    budgetIndicators: result.object.budgetIndicators,
-    confidence: result.object.confidence,
-  };
+    // Handle exactOptionalPropertyTypes by conditionally including optional fields
+    const base = {
+      desiredChanges: result.object.desiredChanges,
+      constraintsToPreserve: result.object.constraintsToPreserve,
+      materialPreferences: result.object.materialPreferences,
+      budgetIndicators: result.object.budgetIndicators,
+      confidence: result.object.confidence,
+    };
 
-  return result.object.stylePreference
-    ? { ...base, stylePreference: result.object.stylePreference }
-    : base;
+    return result.object.stylePreference
+      ? { ...base, stylePreference: result.object.stylePreference }
+      : base;
+  } catch (error) {
+    console.error('Failed to extract design intent:', error);
+    return {
+      desiredChanges: [],
+      constraintsToPreserve: [],
+      materialPreferences: [],
+      budgetIndicators: [],
+      confidence: 0,
+    };
+  }
 }

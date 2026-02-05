@@ -29,24 +29,31 @@ export async function extractLeadData(messages: Message[]): Promise<LeadExtracti
     .map((m) => `${m.role === 'user' ? 'Customer' : 'Assistant'}: ${m.content}`)
     .join('\n\n');
 
-  const result = await generateObject({
-    model: openai(AI_CONFIG.openai.extraction),
-    schema: LeadExtractionSchema,
-    messages: [
-      {
-        role: 'system',
-        content: LEAD_EXTRACTION_PROMPT,
-      },
-      {
-        role: 'user',
-        content: `Extract lead information from this conversation:\n\n${conversationText}`,
-      },
-    ],
-    maxOutputTokens: AI_CONFIG.parameters.extraction.maxTokens,
-    temperature: AI_CONFIG.parameters.extraction.temperature,
-  });
+  try {
+    const result = await generateObject({
+      model: openai(AI_CONFIG.openai.extraction),
+      schema: LeadExtractionSchema,
+      messages: [
+        {
+          role: 'system',
+          content: LEAD_EXTRACTION_PROMPT,
+        },
+        {
+          role: 'user',
+          content: `Extract lead information from this conversation:\n\n${conversationText}`,
+        },
+      ],
+      maxOutputTokens: AI_CONFIG.parameters.extraction.maxTokens,
+      temperature: AI_CONFIG.parameters.extraction.temperature,
+    });
 
-  return result.object;
+    return result.object;
+  } catch (error) {
+    console.error('Failed to extract lead data:', error);
+    throw new Error(
+      `Lead extraction failed: ${error instanceof Error ? error.message : 'Unable to extract lead data. Please try again.'}`
+    );
+  }
 }
 
 /**
@@ -60,26 +67,33 @@ export async function extractPartialLeadData(
     .map((m) => `${m.role === 'user' ? 'Customer' : 'Assistant'}: ${m.content}`)
     .join('\n\n');
 
-  const result = await generateObject({
-    model: openai(AI_CONFIG.openai.extraction),
-    schema: PartialLeadExtractionSchema,
-    messages: [
-      {
-        role: 'system',
-        content: `${LEAD_EXTRACTION_PROMPT}
+  try {
+    const result = await generateObject({
+      model: openai(AI_CONFIG.openai.extraction),
+      schema: PartialLeadExtractionSchema,
+      messages: [
+        {
+          role: 'system',
+          content: `${LEAD_EXTRACTION_PROMPT}
 
 Note: This conversation may be incomplete. Only extract fields where information was explicitly provided. Leave other fields empty.`,
-      },
-      {
-        role: 'user',
-        content: `Extract any available lead information from this conversation:\n\n${conversationText}`,
-      },
-    ],
-    maxOutputTokens: AI_CONFIG.parameters.extraction.maxTokens,
-    temperature: AI_CONFIG.parameters.extraction.temperature,
-  });
+        },
+        {
+          role: 'user',
+          content: `Extract any available lead information from this conversation:\n\n${conversationText}`,
+        },
+      ],
+      maxOutputTokens: AI_CONFIG.parameters.extraction.maxTokens,
+      temperature: AI_CONFIG.parameters.extraction.temperature,
+    });
 
-  return result.object;
+    return result.object;
+  } catch (error) {
+    console.error('Failed to extract partial lead data:', error);
+    throw new Error(
+      `Partial lead extraction failed: ${error instanceof Error ? error.message : 'Unable to extract data. Please try again.'}`
+    );
+  }
 }
 
 /**
@@ -106,20 +120,25 @@ export async function extractContactInfo(messages: Message[]): Promise<{
     .map((m) => `${m.role === 'user' ? 'Customer' : 'Assistant'}: ${m.content}`)
     .join('\n\n');
 
-  const result = await generateObject({
-    model: openai(AI_CONFIG.openai.chat),
-    schema: ContactInfoSchema,
-    messages: [
-      {
-        role: 'user',
-        content: `Extract the customer's contact information (name, email, phone) from this conversation. Return null for any information not provided:\n\n${conversationText}`,
-      },
-    ],
-    maxOutputTokens: 200,
-    temperature: 0.1,
-  });
+  try {
+    const result = await generateObject({
+      model: openai(AI_CONFIG.openai.chat),
+      schema: ContactInfoSchema,
+      messages: [
+        {
+          role: 'user',
+          content: `Extract the customer's contact information (name, email, phone) from this conversation. Return null for any information not provided:\n\n${conversationText}`,
+        },
+      ],
+      maxOutputTokens: 200,
+      temperature: 0.1,
+    });
 
-  return result.object;
+    return result.object;
+  } catch (error) {
+    console.error('Failed to extract contact info:', error);
+    return { name: null, email: null, phone: null };
+  }
 }
 
 /**
