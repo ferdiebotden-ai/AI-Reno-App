@@ -3,7 +3,7 @@
 /**
  * Submit Request Modal
  * Confirmation dialog for submitting a renovation request
- * Shows summary of collected data and captures contact info if needed
+ * Shows summary of collected data and captures contact info with Ontario-specific fields
  */
 
 import { useState } from 'react';
@@ -18,7 +18,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, Loader2, ArrowLeft, PartyPopper } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Check, ArrowLeft, PartyPopper, Calendar, Home, AlertCircle } from 'lucide-react';
+import { StepProgress } from '@/components/ui/progress-loader';
 import type { ProjectSummaryData } from './estimate-sidebar';
 
 interface SubmitRequestModalProps {
@@ -29,11 +39,39 @@ interface SubmitRequestModalProps {
   onSubmit: (contactInfo: ContactInfo) => Promise<void>;
 }
 
+// Extended contact info with Ontario-specific fields
 interface ContactInfo {
   name: string;
   email: string;
   phone?: string;
+  // Ontario-specific fields
+  propertyType?: string;
+  propertyAge?: string;
+  isOwner?: boolean;
+  hasHOA?: boolean;
+  hoaRestrictions?: string;
+  permitAware?: boolean;
+  preferredStartDate?: string;
+  accessNotes?: string;
 }
+
+// Property type options
+const PROPERTY_TYPE_OPTIONS = [
+  { value: 'detached', label: 'Detached House' },
+  { value: 'semi', label: 'Semi-Detached' },
+  { value: 'townhouse', label: 'Townhouse' },
+  { value: 'condo', label: 'Condo/Apartment' },
+  { value: 'other', label: 'Other' },
+];
+
+// Property age options
+const PROPERTY_AGE_OPTIONS = [
+  { value: 'new', label: 'New Construction' },
+  { value: '0-10', label: '0-10 years' },
+  { value: '10-25', label: '10-25 years' },
+  { value: '25-50', label: '25-50 years' },
+  { value: '50+', label: '50+ years' },
+];
 
 const PROJECT_TYPE_LABELS: Record<string, string> = {
   kitchen: 'Kitchen Renovation',
@@ -59,7 +97,27 @@ const FINISH_LABELS: Record<string, string> = {
   premium: 'Premium',
 };
 
-type Step = 'review' | 'contact' | 'success';
+type Step = 'review' | 'contact' | 'details' | 'submitting' | 'success';
+
+const SUBMIT_PROGRESS_STEPS = [
+  { label: 'Saving your project details...' },
+  { label: 'Analyzing your renovation needs...' },
+  { label: 'Setting up your personalized quote...' },
+  { label: 'Finalizing your request...' },
+];
+
+const RENOVATION_TIPS = [
+  'Kitchen renovations in Ontario typically add 75-100% of their cost to home value',
+  'The best time to start a renovation in Stratford is early spring or late fall',
+  'A detailed scope of work helps avoid surprises and change orders',
+  'Building permits in Ontario usually take 2-4 weeks to process',
+  'Energy-efficient upgrades may qualify for Ontario rebate programs',
+  'Choosing a local contractor means faster response times and material sourcing',
+  'A 50% deposit secures your spot in the project schedule',
+  'Photos help us provide a more accurate initial estimate',
+  'Most kitchen renovations in Ontario take 4-8 weeks to complete',
+  'Bathroom renovations are the second-highest ROI home improvement project',
+];
 
 export function SubmitRequestModal({
   isOpen,
@@ -68,12 +126,14 @@ export function SubmitRequestModal({
   onSubmit,
 }: SubmitRequestModalProps) {
   const [step, setStep] = useState<Step>('review');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contactInfo, setContactInfo] = useState<ContactInfo>({
     name: projectData.contactName || '',
     email: projectData.contactEmail || '',
     phone: projectData.contactPhone || '',
+    isOwner: true,
+    hasHOA: false,
+    permitAware: false,
   });
 
   const handleSubmit = async () => {
@@ -87,20 +147,24 @@ export function SubmitRequestModal({
       return;
     }
 
-    setIsSubmitting(true);
     setError(null);
+    setStep('submitting');
 
     try {
-      await onSubmit(contactInfo);
+      // Minimum display time so progress screen is visible
+      const delay = new Promise((resolve) => setTimeout(resolve, 1500));
+      await Promise.all([onSubmit(contactInfo), delay]);
       setStep('success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit request');
-    } finally {
-      setIsSubmitting(false);
+      setStep('details');
     }
   };
 
   const handleClose = () => {
+    // Prevent close during submission
+    if (step === 'submitting') return;
+
     // Reset state on close
     setStep('review');
     setError(null);
@@ -113,7 +177,7 @@ export function SubmitRequestModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" data-testid="submit-modal">
         {step === 'review' && (
           <>
             <DialogHeader>
@@ -180,7 +244,7 @@ export function SubmitRequestModal({
                 Add More Details
               </Button>
               <Button
-                onClick={() => setStep(hasContactInfo ? 'contact' : 'contact')}
+                onClick={() => setStep('contact')}
                 className="sm:flex-1 bg-[#D32F2F] hover:bg-[#B71C1C]"
               >
                 Continue
@@ -208,6 +272,7 @@ export function SubmitRequestModal({
                   onChange={(e) =>
                     setContactInfo((prev) => ({ ...prev, name: e.target.value }))
                   }
+                  data-testid="contact-name"
                 />
               </div>
 
@@ -221,6 +286,7 @@ export function SubmitRequestModal({
                   onChange={(e) =>
                     setContactInfo((prev) => ({ ...prev, email: e.target.value }))
                   }
+                  data-testid="contact-email"
                 />
               </div>
 
@@ -234,6 +300,7 @@ export function SubmitRequestModal({
                   onChange={(e) =>
                     setContactInfo((prev) => ({ ...prev, phone: e.target.value }))
                   }
+                  data-testid="contact-phone"
                 />
               </div>
 
@@ -252,26 +319,219 @@ export function SubmitRequestModal({
                 Back
               </Button>
               <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
+                onClick={() => {
+                  // Validate contact info before proceeding
+                  if (!contactInfo.name.trim()) {
+                    setError('Please enter your name');
+                    return;
+                  }
+                  if (!contactInfo.email.trim() || !contactInfo.email.includes('@')) {
+                    setError('Please enter a valid email address');
+                    return;
+                  }
+                  setError(null);
+                  setStep('details');
+                }}
                 className="sm:flex-1 bg-[#D32F2F] hover:bg-[#B71C1C]"
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  'Submit Request'
-                )}
+                Continue
               </Button>
             </DialogFooter>
           </>
         )}
 
+        {step === 'details' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Property details</DialogTitle>
+              <DialogDescription>
+                Help us understand your property better for an accurate quote.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+              {/* Property Type */}
+              <div className="space-y-2">
+                <Label htmlFor="propertyType">Property Type</Label>
+                <Select
+                  value={contactInfo.propertyType ?? ''}
+                  onValueChange={(value) =>
+                    setContactInfo((prev) => ({ ...prev, propertyType: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select property type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROPERTY_TYPE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Property Age */}
+              <div className="space-y-2">
+                <Label htmlFor="propertyAge">Property Age</Label>
+                <Select
+                  value={contactInfo.propertyAge ?? ''}
+                  onValueChange={(value) =>
+                    setContactInfo((prev) => ({ ...prev, propertyAge: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="How old is your property?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROPERTY_AGE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Ownership Status */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isOwner"
+                  checked={contactInfo.isOwner ?? true}
+                  onCheckedChange={(checked) =>
+                    setContactInfo((prev) => ({ ...prev, isOwner: checked === true }))
+                  }
+                />
+                <Label htmlFor="isOwner" className="text-sm font-normal cursor-pointer">
+                  I am the property owner
+                </Label>
+              </div>
+
+              {/* HOA/Condo */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="hasHOA"
+                    checked={contactInfo.hasHOA ?? false}
+                    onCheckedChange={(checked) =>
+                      setContactInfo((prev) => ({ ...prev, hasHOA: checked === true }))
+                    }
+                  />
+                  <Label htmlFor="hasHOA" className="text-sm font-normal cursor-pointer">
+                    Property has HOA or condo board
+                  </Label>
+                </div>
+                {contactInfo.hasHOA && (
+                  <Textarea
+                    placeholder="Any restrictions we should know about? (e.g., work hours, approval needed)"
+                    value={contactInfo.hoaRestrictions || ''}
+                    onChange={(e) =>
+                      setContactInfo((prev) => ({ ...prev, hoaRestrictions: e.target.value }))
+                    }
+                    className="mt-2"
+                    rows={2}
+                  />
+                )}
+              </div>
+
+              {/* Preferred Start Date */}
+              <div className="space-y-2">
+                <Label htmlFor="startDate" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Preferred Start Date
+                </Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={contactInfo.preferredStartDate || ''}
+                  onChange={(e) =>
+                    setContactInfo((prev) => ({ ...prev, preferredStartDate: e.target.value }))
+                  }
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+
+              {/* Access Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="accessNotes" className="flex items-center gap-2">
+                  <Home className="h-4 w-4" />
+                  Access Information
+                </Label>
+                <Textarea
+                  id="accessNotes"
+                  placeholder="Lockbox code, key location, pets, parking info, etc."
+                  value={contactInfo.accessNotes || ''}
+                  onChange={(e) =>
+                    setContactInfo((prev) => ({ ...prev, accessNotes: e.target.value }))
+                  }
+                  rows={2}
+                />
+              </div>
+
+              {/* Permit Awareness */}
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-2">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      Some renovations in Ontario require building permits. We&apos;ll help you determine if permits are needed.
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="permitAware"
+                        checked={contactInfo.permitAware ?? false}
+                        onCheckedChange={(checked) =>
+                          setContactInfo((prev) => ({ ...prev, permitAware: checked === true }))
+                        }
+                      />
+                      <Label htmlFor="permitAware" className="text-sm font-normal cursor-pointer text-amber-800 dark:text-amber-200">
+                        I understand permits may be required
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
+            </div>
+
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setStep('contact')}
+                className="sm:flex-1"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                className="sm:flex-1 bg-[#D32F2F] hover:bg-[#B71C1C]"
+                data-testid="submit-form-button"
+              >
+                Submit Request Now
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === 'submitting' && (
+          <div className="py-6" data-testid="submit-progress">
+            <StepProgress
+              steps={SUBMIT_PROGRESS_STEPS}
+              tips={RENOVATION_TIPS}
+              stepDuration={2500}
+              tipDuration={3500}
+            />
+          </div>
+        )}
+
         {step === 'success' && (
           <>
-            <DialogHeader className="text-center">
+            <DialogHeader className="text-center" data-testid="submission-success">
               <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
                 <PartyPopper className="h-6 w-6 text-green-600" />
               </div>

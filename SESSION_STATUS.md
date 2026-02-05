@@ -1,6 +1,6 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 5, 2026 (Visualizer Bugfixes & Style Previews)
+> **Last Updated:** February 5, 2026 (Enhanced Loading Experiences)
 > **Status:** LAUNCHED - Production Ready
 > **Current Phase:** Phase 5 - Testing & Launch (COMPLETE) + Visualizer Enhancement (7 Phases COMPLETE)
 
@@ -113,6 +113,39 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: February 5, 2026 (Enhanced Loading Experiences)
+**Completed:**
+- Created reusable `StepProgress` and `PdfSkeleton` components in `src/components/ui/progress-loader.tsx`
+- Enhanced submit request modal with multi-step progress indicator and rotating renovation tips
+- Enhanced quote send wizard with 3 improved loading states (email gen, PDF preview, send)
+
+**Changes Made:**
+
+**1. New Component: `progress-loader.tsx`**
+- `StepProgress` - Multi-step progress with non-linear cubic ease-out bar (capped at 95%), fading step labels, optional rotating tips carousel with dot indicators, full a11y (`aria-live`, `role="progressbar"`), `motion-reduce:transition-none`
+- `PdfSkeleton` - Document-shaped skeleton using existing `<Skeleton>` component, mimics PDF layout with toolbar, header, customer info, line items, totals
+
+**2. Submit Request Modal Enhancement**
+- Added `'submitting'` step between form and success with `StepProgress` + 10 Ontario renovation tips
+- Replaced `isSubmitting` boolean with step-based flow
+- Added minimum 1.5s display time via `Promise.all` with delay
+- Prevented dialog close during submission
+- On error, returns to `'details'` step with error message
+
+**3. Quote Send Wizard Enhancement**
+- Email generation: Replaced bare `Loader2` with `StepProgress` (3 steps)
+- PDF preview: Replaced `Loader2` with `PdfSkeleton` document skeleton
+- Quote sending: Added `StepProgress` takeover of confirm step, hides footer buttons during send
+
+**Build Status:** Passing
+
+**Next Session:**
+1. Manual test all loading states at 375px viewport
+2. Verify reduced-motion behavior
+3. Run E2E tests to confirm no regressions
+
+---
 
 ### Session: February 5, 2026 (Visualizer Bugfixes & Style Previews)
 **Completed:**
@@ -388,6 +421,7 @@ SELECT set_admin_role('email@example.com');
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-05 | Enhanced Loading Experiences | Reusable StepProgress + PdfSkeleton components, multi-step progress in submit modal and quote send wizard |
 | 2026-02-05 | AI Visualizer World-Class Enhancement | Complete 7-phase visualizer enhancement: prompt engineering, photo analysis, conversation mode, database schema, admin integration, validation, metrics |
 | 2026-02-04 | UX Fixes & PRD Cleanup | Removed Quick Replies, fixed Voice Mode, simplified Visualizer, updated PRD as source of truth |
 | 2026-02-03 | PRD 13.2 Strict Tests | Fixed E2E tests (73 pass, 8 skip, 0 fail), touch target compliance |

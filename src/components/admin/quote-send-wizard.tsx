@@ -22,11 +22,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
   Sparkles,
   FileText,
   Mail,
   Send,
-  Loader2,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -35,8 +40,23 @@ import {
   Eye,
   AlertCircle,
   Edit3,
+  Pencil,
 } from 'lucide-react';
+import { StepProgress, PdfSkeleton } from '@/components/ui/progress-loader';
+import { EmailPreview } from './email-preview';
 import type { AIEmail } from '@/lib/schemas/ai-email';
+
+const EMAIL_GEN_STEPS = [
+  { label: 'Reading project details...' },
+  { label: 'Crafting personalized message...' },
+  { label: 'Polishing email copy...' },
+];
+
+const SEND_STEPS = [
+  { label: 'Generating your PDF...' },
+  { label: 'Composing email...' },
+  { label: 'Delivering to customer...' },
+];
 
 interface QuoteSendWizardProps {
   open: boolean;
@@ -48,8 +68,8 @@ interface QuoteSendWizardProps {
   quoteTotal: number;
   depositRequired: number;
   lineItemCount: number;
-  goalsText?: string;
-  sentAt?: Date | null;
+  goalsText?: string | undefined;
+  sentAt?: Date | null | undefined;
   onSendComplete: () => void;
 }
 
@@ -389,9 +409,7 @@ The Red White Reno Team`);
           {currentStep === 'preview' && (
             <div className="space-y-4">
               {isLoadingPdf ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
+                <PdfSkeleton />
               ) : pdfUrl ? (
                 <div className="border rounded-lg overflow-hidden">
                   <div className="bg-muted p-2 flex items-center justify-between">
@@ -419,15 +437,20 @@ The Red White Reno Team`);
           {currentStep === 'email' && (
             <div className="space-y-4">
               {isGeneratingEmail ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#D32F2F] mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Generating AI email...</p>
-                  </div>
-                </div>
+                <StepProgress steps={EMAIL_GEN_STEPS} stepDuration={2000} />
               ) : (
-                <>
-                  <div className="flex items-center justify-between">
+                <Tabs defaultValue="edit" className="w-full">
+                  <div className="flex items-center justify-between mb-4">
+                    <TabsList>
+                      <TabsTrigger value="edit" className="gap-1.5">
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </TabsTrigger>
+                      <TabsTrigger value="preview" className="gap-1.5">
+                        <Eye className="h-4 w-4" />
+                        Preview
+                      </TabsTrigger>
+                    </TabsList>
                     <div className="flex items-center gap-2">
                       {aiEmail && !isEmailEdited && (
                         <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
@@ -441,58 +464,71 @@ The Red White Reno Team`);
                           Edited
                         </Badge>
                       )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={generateEmail}
-                      disabled={isGeneratingEmail}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-1" />
-                      Regenerate
-                    </Button>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="email-to" className="text-sm">To</Label>
-                      <Input
-                        id="email-to"
-                        value={customerEmail}
-                        disabled
-                        className="bg-muted"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="email-subject" className="text-sm">Subject</Label>
-                      <Input
-                        id="email-subject"
-                        value={emailSubject}
-                        onChange={(e) => {
-                          setEmailSubject(e.target.value);
-                          setIsEmailEdited(true);
-                        }}
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="email-body" className="text-sm">Message</Label>
-                      <Textarea
-                        id="email-body"
-                        value={emailBody}
-                        onChange={(e) => {
-                          setEmailBody(e.target.value);
-                          setIsEmailEdited(true);
-                        }}
-                        rows={10}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        The quote PDF will be attached to this email automatically.
-                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={generateEmail}
+                        disabled={isGeneratingEmail}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Regenerate
+                      </Button>
                     </div>
                   </div>
-                </>
+
+                  <TabsContent value="edit" className="mt-0">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="email-to" className="text-sm">To</Label>
+                        <Input
+                          id="email-to"
+                          value={customerEmail}
+                          disabled
+                          className="bg-muted"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="email-subject" className="text-sm">Subject</Label>
+                        <Input
+                          id="email-subject"
+                          value={emailSubject}
+                          onChange={(e) => {
+                            setEmailSubject(e.target.value);
+                            setIsEmailEdited(true);
+                          }}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="email-body" className="text-sm">Message</Label>
+                        <Textarea
+                          id="email-body"
+                          value={emailBody}
+                          onChange={(e) => {
+                            setEmailBody(e.target.value);
+                            setIsEmailEdited(true);
+                          }}
+                          rows={10}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          The quote PDF will be attached to this email automatically.
+                        </p>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="preview" className="mt-0">
+                    <EmailPreview
+                      subject={emailSubject}
+                      body={emailBody}
+                      recipientEmail={customerEmail}
+                      recipientName={customerName}
+                      quoteTotal={quoteTotal}
+                      depositRequired={depositRequired}
+                    />
+                  </TabsContent>
+                </Tabs>
               )}
             </div>
           )}
@@ -510,6 +546,8 @@ The Red White Reno Team`);
                     The quote has been emailed to {customerEmail}
                   </p>
                 </div>
+              ) : isSending ? (
+                <StepProgress steps={SEND_STEPS} stepDuration={2000} />
               ) : (
                 <>
                   <Card>
@@ -540,7 +578,7 @@ The Red White Reno Team`);
                   </Card>
 
                   <p className="text-sm text-muted-foreground text-center">
-                    Click "Send Quote" to email the quote to {customerName}
+                    Click &quot;Send Quote&quot; to email the quote to {customerName}
                   </p>
                 </>
               )}
@@ -550,23 +588,27 @@ The Red White Reno Team`);
 
         {/* Footer navigation */}
         <DialogFooter className="flex-row justify-between sm:justify-between">
-          <Button
-            variant="outline"
-            onClick={goBack}
-            disabled={currentStepIndex === 0 || isSending || sendSuccess}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-
-          <div className="flex gap-2">
+          {!isSending && (
             <Button
               variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSending}
+              onClick={goBack}
+              disabled={currentStepIndex === 0 || sendSuccess}
             >
-              Cancel
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
             </Button>
+          )}
+          {isSending && <div />}
+
+          <div className="flex gap-2">
+            {!isSending && (
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+            )}
 
             {currentStep !== 'confirm' ? (
               <Button
@@ -576,23 +618,13 @@ The Red White Reno Team`);
                 Next
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
-            ) : !sendSuccess ? (
+            ) : !sendSuccess && !isSending ? (
               <Button
                 onClick={handleSend}
-                disabled={isSending}
                 className="bg-[#D32F2F] hover:bg-[#B71C1C]"
               >
-                {isSending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Quote
-                  </>
-                )}
+                <Send className="h-4 w-4 mr-2" />
+                Send Quote
               </Button>
             ) : null}
           </div>
