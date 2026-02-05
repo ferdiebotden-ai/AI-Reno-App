@@ -15,8 +15,8 @@ export const google = createGoogleGenerativeAI({});
 const apiKey = process.env['GOOGLE_GENERATIVE_AI_API_KEY'];
 export const googleNativeAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-// Image generation model (Gemini 2.0 Flash with native image output)
-export const imageModel = 'gemini-2.0-flash-exp';
+// Image generation model (Gemini 3 Pro Image for high-quality transformations)
+export const imageModel = 'gemini-3-pro-image-preview';
 
 // Configuration for visualization generation
 export const VISUALIZATION_CONFIG = {
@@ -24,16 +24,21 @@ export const VISUALIZATION_CONFIG = {
   model: imageModel,
   // How much to preserve the original room structure (0.0-1.0)
   // Higher = more faithful to original layout
-  structureReferenceStrength: 0.85,
+  // Increased from 0.85 to 0.90 for better structure preservation
+  structureReferenceStrength: 0.90,
   // How strongly to apply the style (0.0-1.0)
   // Moderate to avoid overwhelming the original image
   styleStrength: 0.4,
   // Number of variations to generate
   outputCount: 4,
-  // Output resolution
-  resolution: '1024x1024' as const,
+  // Output resolution - increased to 2048x2048 for higher quality
+  resolution: '2048x2048' as const,
   // Maximum generation time (ms)
-  timeout: 90000,
+  timeout: 120000,
+  // Preserve original room lighting
+  preserveLighting: true,
+  // Preserve shadows for realism
+  preserveShadows: true,
 } as const;
 
 // Type for image generation result
@@ -78,6 +83,27 @@ export async function generateImageWithGemini(
         // @ts-expect-error - responseModalities is valid but not in older type definitions
         responseModalities: ['Text', 'Image'],
       },
+      // System instruction for renovation visualization
+      systemInstruction: `You are a professional interior design visualization AI for a renovation company.
+
+CRITICAL REQUIREMENTS:
+- Preserve the EXACT room geometry, camera angle, and structural elements from the input photo
+- Transform ONLY the finishes, fixtures, colors, and decor according to the style requested
+- Maintain realistic lighting consistent with the original photo
+- Keep windows, doors, and architectural features in their exact positions
+- Generate photorealistic images suitable for showing to renovation clients
+- Never generate a completely different room - transform the existing one
+
+COMMON PITFALLS TO AVOID:
+- Do NOT change the room's dimensions or ceiling height
+- Do NOT alter window or door positions/sizes
+- Do NOT change the camera perspective or viewing angle
+- Do NOT introduce architectural features not present in original (e.g., adding arches, beams)
+- Do NOT remove structural elements like columns or load-bearing walls
+- Do NOT dramatically alter the room's natural lighting direction
+- Do NOT apply styles that require structural changes (e.g., vaulted ceilings)
+
+OUTPUT: A single high-resolution photorealistic renovation visualization at 2048x2048 resolution.`,
     });
 
     // Build the content parts

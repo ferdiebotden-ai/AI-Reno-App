@@ -1,7 +1,7 @@
 # Product Requirements Document: AI-Native Renovation Lead-to-Quote Engine
 
-**Version:** 3.0 Post-Implementation
-**Date:** February 2, 2026
+**Version:** 3.2
+**Date:** February 5, 2026
 **Author:** Claude (Cowork Mode) + Claude Code (Opus 4.5)
 **Primary Builder:** Claude Code (Opus 4.5)
 **Target Client:** Red White Reno (Initial) → Productized SaaS (Scale)
@@ -245,10 +245,9 @@ The AI Quote Assistant is a conversational interface that guides homeowners thro
 | QA-006 | Calculate and display preliminary estimate range | Must Have | ✅ DONE | Shows low-high range with ±15% variance disclosed |
 | QA-007 | Capture contact information (name, email, phone) | Must Have | ✅ DONE | Validates email format, phone format (Canadian) |
 | QA-008 | Display progress indicator showing conversation stage | Should Have | ✅ DONE | "Step 2 of 5" or progress bar |
-| QA-009 | Provide quick-reply buttons for common responses | Should Have | ✅ DONE | Buttons for project types, timeline options, budget ranges |
-| QA-010 | Save/resume functionality via email magic link | Should Have | ✅ DONE | Session persists for 7 days |
-| QA-011 | Allow voice input on mobile (speech-to-text) | Should Have (v1.5) | ⏸️ DEFERRED | Uses browser native speech API |
-| QA-012 | Connect visualization to estimate (if user used visualizer first) | Should Have | ✅ DONE | Visualizer selections flow into quote context |
+| QA-009 | Save/resume functionality via email magic link | Should Have | ✅ DONE | Session persists for 7 days |
+| QA-010 | Voice conversation mode | Should Have | ✅ DONE | Full voice mode with OpenAI Realtime API (WebRTC). See Section 3.8 for details. |
+| QA-011 | Connect visualization to estimate (if user used visualizer first) | Should Have | ✅ DONE | Visualizer selections flow into quote context |
 
 ### 3.4 Conversation Flow State Machine
 
@@ -388,9 +387,6 @@ The AI Quote Assistant is a conversational interface that guides homeowners thro
 │  │  │ Type your message...          📎 🎤│ │                       │
 │  │  └────────────────────────────────────┘ │                       │
 │  │                                          │                       │
-│  │  Quick Replies:                          │                       │
-│  │  [Full remodel] [Partial update] [Paint]│                       │
-│  │                                          │                       │
 │  └─────────────────────────────────────────┘                       │
 │                                                                     │
 └────────────────────────────────────────────────────────────────────┘
@@ -434,7 +430,6 @@ The AI Quote Assistant is a conversational interface that guides homeowners thro
 └───────────────────────────────────┘
 
 Note: Input fixed at bottom (thumb zone)
-      Quick reply buttons are large (48px min)
       Estimate sticky at bottom of chat
 ```
 
@@ -448,7 +443,7 @@ The following features were added during implementation based on user testing fe
 | **Submit Request Modal** | Explicit 3-step lead submission flow (Review → Contact → Confirm) | Clearer completion path than implicit save |
 | **Conditional Photo Step** | Progress indicator only shows photo step if photo was uploaded | Reduces confusion for users who skip photos |
 | **Editable Sidebar** | Project details in sidebar are click-to-edit | Quick corrections without re-chatting |
-| **No Price Estimates in UI** | Removed visible price estimates from customer-facing sidebar | Prevents sticker shock before contractor review |
+| **No Price Estimates in UI** | Customer-facing sidebar shows project details only, not price estimates | Prevents sticker shock before contractor review |
 | **HEIC Support** | Automatic HEIC → JPEG conversion via heic2any library | Supports iOS users who upload directly from Photos app |
 
 **Key Implementation Files:**
@@ -456,8 +451,64 @@ The following features were added during implementation based on user testing fe
 - `src/components/chat/project-form-modal.tsx` - Form alternative
 - `src/components/chat/submit-request-modal.tsx` - Lead submission flow
 - `src/components/chat/estimate-sidebar.tsx` - Editable project summary
-- `src/components/chat/quick-replies.tsx` - Animated quick reply buttons
 - `src/components/chat/progress-indicator.tsx` - Multi-step progress with conditional steps
+- `src/components/chat/voice-mode.tsx` - Real-time voice conversation
+
+### 3.8 Voice Mode (OpenAI Realtime API)
+
+The AI Quote Assistant supports real-time voice conversation using OpenAI's Realtime API with WebRTC. This enables natural spoken dialogue for users who prefer voice over typing.
+
+**Technical Architecture:**
+```
+┌─────────────┐     WebRTC      ┌──────────────────┐
+│   Browser   │◄───────────────▶│ OpenAI Realtime  │
+│  (voice-    │                 │     API          │
+│   mode.tsx) │                 │  (gpt-4o-rt)     │
+└──────┬──────┘                 └──────────────────┘
+       │
+       │ POST /api/realtime/session
+       ▼
+┌─────────────┐
+│  Next.js    │  → Generates ephemeral client token
+│   API       │  → Returns token to browser
+└─────────────┘
+```
+
+**User Flow:**
+1. Click "Voice" button in chat header
+2. System checks browser support and API availability (shows loading state)
+3. Click "Start Conversation" - microphone permission requested
+4. Speak naturally - AI responds with voice audio
+5. Transcript appears in real-time during conversation
+6. Click "Submit Transcript" to transfer conversation to text chat
+7. Continue in text mode or submit lead
+
+**Features:**
+- Real-time audio transcription (both user and AI)
+- Audio visualizer showing voice activity
+- Mute/unmute toggle
+- Connection timeout (15s) prevents infinite spinner
+- API configuration check prevents cryptic errors
+- Graceful fallback to text chat on errors
+
+**Error Handling:**
+| Error Condition | User Message | Action |
+|-----------------|--------------|--------|
+| No microphone access | "Please allow microphone access..." | Prompt for permission |
+| Browser not supported | "Voice mode requires a modern browser..." | Offer text chat |
+| API not configured | "Voice mode is not available..." | Offer text chat |
+| Connection timeout | "Connection timed out..." | Retry or text chat |
+| Session expired | "Your voice session has expired..." | Start new session |
+
+**Environment Requirements:**
+- `OPENAI_API_KEY` must be set in environment
+- Modern browser with WebRTC support (Chrome, Edge, Safari)
+
+**Key Implementation Files:**
+- `src/components/chat/voice-mode.tsx` - Voice UI and WebRTC logic
+- `src/app/api/realtime/session/route.ts` - Session token endpoint
+- `src/app/api/realtime/check/route.ts` - API configuration check
+- `src/lib/realtime/config.ts` - Constants and types
 
 ---
 
@@ -510,11 +561,23 @@ The AI Design Visualizer allows homeowners to upload a photo of their current sp
 | Style | Description | Visual Characteristics |
 |-------|-------------|------------------------|
 | **Modern** | Clean lines, minimal ornamentation | Flat-panel cabinets, neutral colors, stainless steel |
-| **Farmhouse** | Warm, rustic, welcoming | Shaker cabinets, wood tones, apron sink |
 | **Traditional** | Classic, timeless, detailed | Raised-panel cabinets, crown molding, warm wood |
+| **Farmhouse** | Warm, rustic, welcoming | Shaker cabinets, wood tones, apron sink |
+| **Industrial** | Raw materials, urban feel | Exposed brick, metal accents, edgy finishes |
+| **Minimalist** | Simple, uncluttered, essential | Clean lines, functional focus, minimal decoration |
 | **Contemporary** | Bold, current trends | Mixed materials, statement lighting, unique finishes |
-| **Scandinavian** | Light, airy, functional | White/light wood, minimal hardware, clean surfaces |
-| **Transitional** | Blend of traditional and modern | Neutral palette, simple profiles, updated classics |
+
+### 4.4.1 Room Types Supported
+
+| Room Type | Focus Areas |
+|-----------|-------------|
+| **Kitchen** | Cabinetry, countertops, backsplash, appliances, lighting, island |
+| **Bathroom** | Vanity, tile work, fixtures, shower/tub, lighting, storage |
+| **Living Room** | Seating, entertainment center, rugs, accent decor |
+| **Bedroom** | Bed frame, nightstands, lighting, window treatments |
+| **Basement** | Flooring, lighting, ceiling, recreation areas |
+| **Dining Room** | Dining table, chairs, lighting fixture, wall decor |
+| **Exterior** | Siding, facade, front door, windows, roofing, landscaping |
 
 ### 4.5 Generation Parameters (for Nano Banana Pro)
 
@@ -522,19 +585,78 @@ The AI Design Visualizer allows homeowners to upload a photo of their current sp
 // API call structure for visualization
 const visualizationConfig = {
   model: 'gemini-3-pro-image-preview',
-  structureReferenceStrength: 0.85, // High: preserve room geometry
+  structureReferenceStrength: 0.90, // Very high: preserve room geometry
   styleStrength: 0.4, // Moderate: apply style without overwhelming
   referenceImages: [userUploadedImage], // Can accept up to 14 reference images
-  prompt: buildVisualizationPrompt(roomType, style, constraints),
+  prompt: buildRenovationPrompt(promptData), // 6-part structured prompt
   outputCount: 4, // Generate 4 variations
-  resolution: '1920x1080', // HD output
+  resolution: '2048x2048', // High-quality square output
   responseModalities: ['image', 'text'] // Include text description
 };
 ```
 
-### 4.6 UI/UX Wireframe Description
+### 4.5.1 Enhanced Prompt System
 
-**Desktop Layout:**
+The visualizer uses a 6-part structured prompt for better results:
+
+1. **Scene Description** - Narrative description of the desired renovation
+2. **Structural Preservation** - Critical instructions for maintaining room geometry
+3. **Material & Finish Specifications** - Specific materials, not generic descriptions
+4. **Lighting Instructions** - Match original photo lighting conditions
+5. **Perspective Instructions** - Maintain exact camera angle from original
+6. **Quality Modifiers** - Photorealistic output requirements
+
+### 4.5.2 Photo Analysis (GPT Vision)
+
+Before generation, photos are analyzed using GPT-4o Vision to extract:
+
+| Data Point | Purpose |
+|------------|---------|
+| Room type detection | Auto-select room type |
+| Current condition | Inform renovation scope |
+| Structural elements | Identify what must be preserved |
+| Identified fixtures | Understand existing features |
+| Layout type | Guide prompt construction |
+| Lighting conditions | Match in generated images |
+| Perspective notes | Maintain camera angle |
+| Preservation constraints | Critical "do not change" elements |
+
+### 4.5.3 Quality Validation
+
+Generated images undergo structure preservation validation:
+
+1. GPT Vision compares original and generated images
+2. Validates room geometry, window positions, camera angle preserved
+3. If validation fails (score < 0.7), automatically retries with stronger structure emphasis
+4. Maximum 3 retry attempts to balance quality and cost
+
+### 4.6 Operating Modes
+
+The visualizer supports two modes to balance convenience and personalization:
+
+| Mode | Description | Best For |
+|------|-------------|----------|
+| **Conversation Mode** (default) | AI chat gathers design intent through natural conversation before generating | Users who want personalized, context-aware results |
+| **Quick Mode** | Traditional 4-step form: Photo → Room → Style → Constraints | Users in a hurry who know what they want |
+
+**Conversation Mode Flow:**
+1. User uploads photo
+2. Photo is analyzed by GPT Vision
+3. AI describes what it sees and asks about desired changes
+4. Natural back-and-forth (3-5 turns) to understand:
+   - Specific changes wanted
+   - Elements to preserve
+   - Style preferences
+   - Material preferences
+5. When ready, user clicks "Generate Visualization"
+6. Richer context produces more relevant results
+
+**Quick Mode Flow:**
+1. Upload Photo → 2. Select Room Type → 3. Choose Style → 4. Add Constraints (optional) → Generate
+
+### 4.7 UI/UX Wireframe Description
+
+**Desktop Layout (Quick Mode):**
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │  HEADER: Logo | Services | Projects | [Visualize] | [Get Quote]    │
@@ -557,15 +679,23 @@ const visualizationConfig = {
 │  │                                                              │  │
 │  │  STEP 2: Select Room Type                                    │  │
 │  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐    │  │
-│  │  │ 🍳     │ │ 🛁     │ │ 🛋️     │ │ 🏠     │ │ 🌳     │    │  │
-│  │  │Kitchen │ │Bathroom│ │ Living │ │Basement│ │Exterior│    │  │
+│  │  │ 🍳     │ │ 🛁     │ │ 🛋️     │ │ 🛏️     │ │ 🏠     │    │  │
+│  │  │Kitchen │ │Bathroom│ │ Living │ │Bedroom │ │Basement│    │  │
 │  │  └────────┘ └────────┘ └────────┘ └────────┘ └────────┘    │  │
+│  │  ┌────────┐ ┌────────┐                                      │  │
+│  │  │ 🍽️     │ │ 🌳     │                                      │  │
+│  │  │ Dining │ │Exterior│                                      │  │
+│  │  └────────┘ └────────┘                                      │  │
 │  │                                                              │  │
 │  │  STEP 3: Choose Your Style                                   │  │
 │  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐        │  │
 │  │  │ [image] │ │ [image] │ │ [image] │ │ [image] │        │  │
-│  │  │ Modern  │ │Farmhouse│ │ Classic │ │ Scandi  │        │  │
+│  │  │ Modern  │ │Tradition│ │Farmhouse│ │Industri │        │  │
 │  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘        │  │
+│  │  ┌──────────┐ ┌──────────┐                                  │  │
+│  │  │ [image] │ │ [image] │                                  │  │
+│  │  │Minimalis│ │Contempor│                                  │  │
+│  │  └──────────┘ └──────────┘                                  │  │
 │  │                                                              │  │
 │  │  STEP 4: Any Constraints? (Optional)                         │  │
 │  │  ┌──────────────────────────────────────────────────────┐   │  │
@@ -613,27 +743,70 @@ const visualizationConfig = {
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.7 Implementation Notes
+### 4.8 Implementation Notes
 
-**AI Provider:** Uses native Google Generative AI SDK (`@google/generative-ai`) rather than Vercel AI SDK wrapper for image generation. This provides better control over image generation parameters.
+**AI Providers:**
+- **Image Generation:** Native Google Generative AI SDK (`@google/generative-ai`) for Gemini 3 Pro Image
+- **Photo Analysis:** OpenAI GPT-4o Vision for room analysis and design intent extraction
+- **Conversation Chat:** OpenAI GPT-4o for conversational design gathering
 
-**Storage:** Generated visualizations are stored in Supabase Storage (`visualizations` bucket) and metadata tracked in `visualizations` table.
+**Storage:** Generated visualizations are stored in Supabase Storage (`visualizations` bucket) and metadata tracked in `visualizations` table with enhanced fields for photo analysis and conversation context.
 
-**Enhancements Beyond PRD:**
-| Enhancement | Description |
-|-------------|-------------|
-| **Shareable View** | Unique share tokens for `/visualizer/share/[token]` - users can share results |
-| **Lead Linkage** | Visualizations can be linked to leads when user proceeds to quote |
-| **Download Tracking** | Tracks download count and timestamps for analytics |
-| **HEIC Conversion** | Automatic HEIC → JPEG conversion for iOS users via heic2any |
+**Key Features:**
+| Feature | Description |
+|---------|-------------|
+| **Two Operating Modes** | Conversation Mode (default) and Quick Mode for different user preferences |
+| **Photo Analysis** | GPT Vision analyzes photos before generation for better prompts |
+| **6-Part Prompts** | Structured prompts cover scene, structure, materials, lighting, perspective, quality |
+| **Quality Validation** | GPT Vision validates structure preservation with automatic retry |
+| **Shareable View** | Unique share tokens for `/visualizer/share/[token]` |
+| **Lead Linkage** | Visualizations linked to leads via junction table |
+| **Admin Integration** | Visualization panel in lead detail with before/after slider, notes, feasibility scoring |
+| **Metrics Tracking** | Generation time, retry count, costs, conversion rates |
+| **HEIC Conversion** | Automatic HEIC → JPEG conversion for iOS users |
 | **90s Timeout** | AbortController-based timeout with clear error messaging |
 
 **Key Implementation Files:**
-- `src/components/visualizer/visualizer-form.tsx` - Main form component
+- `src/components/visualizer/visualizer-form.tsx` - Main form with mode selection
+- `src/components/visualizer/visualizer-chat.tsx` - Conversation mode chat UI
 - `src/components/visualizer/before-after-slider.tsx` - Interactive comparison slider
 - `src/lib/ai/gemini.ts` - Native Gemini SDK integration with image generation
-- `src/lib/ai/visualization.ts` - Visualization service orchestration
-- `src/app/api/ai/visualize/route.ts` - API endpoint
+- `src/lib/ai/visualization.ts` - Visualization service with retry logic
+- `src/lib/ai/photo-analyzer.ts` - GPT Vision photo analysis
+- `src/lib/ai/prompt-builder.ts` - 6-part structured prompt construction
+- `src/lib/ai/validation.ts` - Structure preservation validation
+- `src/lib/ai/visualizer-conversation.ts` - Conversation state machine
+- `src/app/api/ai/visualize/route.ts` - Main visualization API
+- `src/app/api/ai/visualizer-chat/route.ts` - Conversation chat API
+
+**Database Schema:**
+```sql
+-- Enhanced visualizations table columns
+conversation_context JSONB,      -- Chat history and extracted data
+photo_analysis JSONB,            -- GPT Vision room analysis
+admin_notes TEXT,                -- Contractor notes
+selected_concept_index INTEGER,  -- Preferred concept
+contractor_feasibility_score INTEGER, -- 1-5 feasibility rating
+estimated_cost_impact TEXT,      -- Cost implications
+technical_concerns TEXT[]        -- Array of concerns
+
+-- Junction table for many-to-many lead-visualization linking
+lead_visualizations (
+  lead_id UUID REFERENCES leads(id),
+  visualization_id UUID REFERENCES visualizations(id),
+  is_primary BOOLEAN,
+  admin_selected BOOLEAN
+)
+
+-- Metrics table
+visualization_metrics (
+  generation_time_ms INTEGER,
+  retry_count INTEGER,
+  structure_validation_score NUMERIC,
+  mode TEXT, -- 'quick' or 'conversation'
+  estimated_cost_usd NUMERIC
+)
+```
 
 ---
 
@@ -826,6 +999,57 @@ The following AI features were added post-PRD to significantly enhance contracto
 - `src/app/admin/settings/page.tsx` - Settings UI
 - `supabase/migrations/20260203000000_ai_quote_settings.sql` - Database migration
 
+#### 6.4.6 Visualization Integration
+
+**Purpose:** Allow contractors to review customer visualizations alongside lead data for better quote accuracy.
+
+**Features:**
+| Feature | Description |
+|---------|-------------|
+| **Visualizations Tab** | Dedicated tab in lead detail page showing all linked visualizations |
+| **Before/After Slider** | Interactive comparison of original photo vs AI-generated concepts |
+| **Concept Gallery** | Thumbnails of all generated concepts with selection |
+| **Photo Analysis Display** | Collapsible view of GPT Vision room analysis |
+| **Conversation Context** | Collapsible view of design intent from conversation mode |
+| **Admin Notes** | Text field for contractor notes about feasibility |
+| **Feasibility Score** | 1-5 star rating for project feasibility |
+| **Cost Impact** | Field for estimated cost implications of visualized changes |
+| **Technical Concerns** | Array of potential issues identified |
+
+**Workflow:**
+1. Customer completes visualization
+2. Customer proceeds to quote assistant with visualization attached
+3. Lead is created with linked visualization(s)
+4. Admin opens lead detail → Visualizations tab
+5. Admin reviews before/after, reads photo analysis
+6. Admin adds notes, feasibility score, technical concerns
+7. This context informs quote line items and pricing
+
+**Files:**
+- `src/components/admin/lead-visualization-panel.tsx` - Main visualization panel
+- `src/components/admin/before-after-comparison.tsx` - Comparison slider wrapper
+- `src/app/api/admin/leads/[id]/visualizations/route.ts` - Fetch/link visualizations
+- `src/app/api/admin/visualizations/[id]/route.ts` - Update visualization assessment
+
+#### 6.4.7 Visualization Metrics Dashboard
+
+**Purpose:** Track visualization performance and costs.
+
+**Metrics Displayed:**
+| Metric | Description |
+|--------|-------------|
+| Total Visualizations | Count in selected period |
+| Avg Generation Time | Mean time to generate 4 concepts |
+| Avg Validation Score | Structure preservation quality |
+| Retry Rate | Percentage requiring regeneration |
+| Quote Conversion Rate | Visualizations that became quotes |
+| Total Estimated Cost | API costs for generation |
+| Cost per Visualization | Average cost per session |
+
+**Files:**
+- `src/components/admin/visualization-metrics-widget.tsx` - Dashboard widget
+- `src/app/api/admin/visualizations/metrics/route.ts` - Metrics API
+
 ---
 
 ## 7. Technical Architecture
@@ -868,7 +1092,7 @@ The following AI features were added post-PRD to significantly enhance contracto
 │  │  │              │  │              │  │                          │  │   │
 │  │  │ • Home       │  │ • Chat UI    │  │ • Upload UI              │  │   │
 │  │  │ • Services   │  │ • Streaming  │  │ • Style selector         │  │   │
-│  │  │ • Gallery    │  │ • Quick reply│  │ • Before/After slider    │  │   │
+│  │  │ • Gallery    │  │ • Voice mode │  │ • Before/After slider    │  │   │
 │  │  │ • Contact    │  │ • Progress   │  │ • Download               │  │   │
 │  │  └──────────────┘  └──────────────┘  └──────────────────────────┘  │   │
 │  │                                                                      │   │
@@ -1232,7 +1456,6 @@ Guide users through the quote intake process by asking relevant questions about 
 - Ask ONE question at a time
 - Keep responses to 2-3 sentences maximum
 - Provide helpful context when asking about budget ranges
-- Use quick-reply options when appropriate
 - Acknowledge user's responses before moving to next question
 
 ## Pricing Guidelines (for internal calculation only - NEVER share these directly)
@@ -1652,7 +1875,7 @@ Required components from shadcn/ui:
 | DEV-027 | Create pricing calculation engine | 6 | ✅ |
 | DEV-028 | Implement lead submission and storage | 4 | ✅ |
 | DEV-029 | Build progress indicator component | 2 | ✅ |
-| DEV-030 | Add quick-reply buttons | 2 | ✅ |
+| DEV-030 | Add voice conversation mode | 8 | ✅ |
 | DEV-031 | Implement save/resume with magic links | 4 | ✅ |
 | DEV-032 | Create email notifications for new leads | 3 | ✅ |
 
@@ -1936,8 +2159,7 @@ The following AI technologies have been researched and validated as of January 3
 | **Chat AI** | OpenAI GPT-5.2 | VALIDATED | Released Dec 11, 2025. Use GPT-5.2-Instant for real-time chat, GPT-5.2-Thinking for complex extraction. 400K context window, 128K output tokens. |
 | **Vision AI** | OpenAI GPT-5.2 Vision | VALIDATED | Multimodal capabilities included in GPT-5.2. Excellent for room analysis and photo interpretation. |
 | **Image Gen** | Google Gemini 3 Pro Image (Nano Banana Pro) | VALIDATED | Best for renovation visualization. Supports structure-preserving edits and up to 4K resolution. Use `structureReferenceStrength: 0.85` for room geometry preservation. |
-| **Voice Input** | Browser Native Speech API | VALIDATED for v1 | Simple, cost-effective. No additional API costs. |
-| **Voice (v2)** | OpenAI Realtime API | FUTURE | $32/1M audio input, $64/1M output tokens. Add in v1.5/v2 for enhanced conversational experience. |
+| **Voice Mode** | OpenAI Realtime API | VALIDATED | Real-time voice conversation via WebRTC. Enables natural spoken dialogue for renovation project descriptions. See Section 3.8. |
 | **Estimation** | Internal Pricing Guidelines | VALIDATED | RSMeans Data ($1,000+/year) is overkill for SMB. Internal guidelines with contractor input are more practical and maintainable. |
 
 ### 15.2 Alternative Considerations
@@ -2149,7 +2371,6 @@ Features added after initial PRD that should be included in all future deploymen
 |------------|----------|-------|
 | SEO optimization | Medium | Sitemap, robots.txt, meta tags |
 | Google Reviews integration | Medium | Requires API key |
-| Voice input | Low | Browser speech API ready |
 | Good/Better/Best tiers | Low | Database schema ready |
 | Privacy Policy page | Medium | Legal content needed |
 | Terms of Service page | Medium | Legal content needed |
@@ -2199,8 +2420,9 @@ lead_quote_engine_v2/
 |---------|------|--------|---------|
 | 1.0 | Jan 21, 2026 | Manus AI | Initial PRD |
 | 2.0 | Jan 31, 2026 | Claude (Cowork) | Enhanced with UX specs, AI behavior, competitive insights |
-| 2.1 | Jan 31, 2026 | Claude (Cowork) | Added AI Stack Validation section with Jan 2026 research |
-| 3.0 | Feb 2, 2026 | Claude Code (Opus 4.5) | Post-implementation documentation: marked all features as complete, added implementation status, white-label guide, lessons learned, new sections 16-17 |
+| 2.1 | Jan 31, 2026 | Claude (Cowork) | Added AI Stack Validation section |
+| 3.0 | Feb 2, 2026 | Claude Code (Opus 4.5) | Post-implementation documentation with white-label guide |
+| 3.1 | Feb 3, 2026 | Claude Code (Opus 4.5) | Added Voice Mode documentation (Section 3.8) |
 
 ---
 

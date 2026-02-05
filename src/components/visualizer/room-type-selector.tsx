@@ -13,10 +13,11 @@ import {
   Home,
   Bed,
   TreeDeciduous,
+  Lamp,
   type LucideIcon,
 } from 'lucide-react';
 
-export type RoomType = 'kitchen' | 'bathroom' | 'living_room' | 'basement' | 'bedroom' | 'exterior';
+export type RoomType = 'kitchen' | 'bathroom' | 'living_room' | 'basement' | 'bedroom' | 'exterior' | 'dining_room';
 
 interface RoomOption {
   id: RoomType;
@@ -61,6 +62,12 @@ const ROOM_OPTIONS: RoomOption[] = [
     label: 'Exterior',
     icon: TreeDeciduous,
     description: 'Siding, decks, and outdoor spaces',
+  },
+  {
+    id: 'dining_room',
+    label: 'Dining Room',
+    icon: Lamp,
+    description: 'Formal or casual dining spaces',
   },
 ];
 

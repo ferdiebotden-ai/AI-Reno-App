@@ -13,6 +13,7 @@ export const roomTypeSchema = z.enum([
   'bedroom',
   'basement',
   'dining_room',
+  'exterior',
 ]);
 
 export type RoomType = z.infer<typeof roomTypeSchema>;
@@ -125,4 +126,5 @@ export const ROOM_CONTEXTS: Record<RoomType, string> = {
   bedroom: 'Focus on bed frame, nightstands, dresser, lighting, window treatments, and accent wall',
   basement: 'Focus on flooring, lighting, ceiling treatment, entertainment/recreation areas, and overall ambiance',
   dining_room: 'Focus on dining table, chairs, lighting fixture, buffet/sideboard, and wall decor',
+  exterior: 'Focus on siding, facade, front door, windows, roofing, landscaping, deck/patio, and outdoor lighting',
 };

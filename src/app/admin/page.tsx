@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/db/server';
 import { MetricsCards } from '@/components/admin/metrics-cards';
 import { RecentLeads } from '@/components/admin/recent-leads';
+import { VisualizationMetricsWidget } from '@/components/admin/visualization-metrics-widget';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,7 +106,12 @@ export default async function AdminDashboardPage() {
         {/* Recent leads */}
         <RecentLeads leads={recentLeads} />
 
-        {/* Placeholder for activity feed or chart */}
+        {/* Visualization metrics widget */}
+        <VisualizationMetricsWidget />
+      </div>
+
+      {/* Quick actions */}
+      <div className="grid gap-6 lg:grid-cols-2">
         <div className="bg-card rounded-lg border border-border p-6">
           <h3 className="font-semibold mb-4">Quick Actions</h3>
           <div className="space-y-3">
@@ -140,6 +146,9 @@ export default async function AdminDashboardPage() {
             </a>
           </div>
         </div>
+
+        {/* Empty placeholder for balance */}
+        <div />
       </div>
     </div>
   );

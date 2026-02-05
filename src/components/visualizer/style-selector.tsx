@@ -10,11 +10,11 @@ import { Check } from 'lucide-react';
 
 export type DesignStyle =
   | 'modern'
-  | 'farmhouse'
   | 'traditional'
-  | 'contemporary'
-  | 'scandinavian'
-  | 'transitional';
+  | 'farmhouse'
+  | 'industrial'
+  | 'minimalist'
+  | 'contemporary';
 
 interface StyleOption {
   id: DesignStyle;
@@ -31,16 +31,28 @@ const STYLE_OPTIONS: StyleOption[] = [
     keywords: ['minimalist', 'sleek', 'geometric'],
   },
   {
+    id: 'traditional',
+    label: 'Traditional',
+    description: 'Classic details, rich colors, timeless elegance',
+    keywords: ['classic', 'elegant', 'ornate'],
+  },
+  {
     id: 'farmhouse',
     label: 'Farmhouse',
     description: 'Rustic charm, natural textures, warm and welcoming',
     keywords: ['rustic', 'cozy', 'shiplap'],
   },
   {
-    id: 'traditional',
-    label: 'Traditional',
-    description: 'Classic details, rich colors, timeless elegance',
-    keywords: ['classic', 'elegant', 'ornate'],
+    id: 'industrial',
+    label: 'Industrial',
+    description: 'Raw materials, exposed brick, metal accents',
+    keywords: ['urban', 'raw', 'edgy'],
+  },
+  {
+    id: 'minimalist',
+    label: 'Minimalist',
+    description: 'Simple, uncluttered, focus on essential elements',
+    keywords: ['simple', 'clean', 'functional'],
   },
   {
     id: 'contemporary',
@@ -48,28 +60,16 @@ const STYLE_OPTIONS: StyleOption[] = [
     description: 'Current trends, bold accents, artistic elements',
     keywords: ['trendy', 'bold', 'artistic'],
   },
-  {
-    id: 'scandinavian',
-    label: 'Scandinavian',
-    description: 'Light, airy, functional simplicity with natural materials',
-    keywords: ['nordic', 'light', 'hygge'],
-  },
-  {
-    id: 'transitional',
-    label: 'Transitional',
-    description: 'Blend of traditional and modern, neutral tones',
-    keywords: ['balanced', 'neutral', 'versatile'],
-  },
 ];
 
 // Placeholder colors for style cards (would be replaced with actual images)
 const STYLE_COLORS: Record<DesignStyle, string> = {
   modern: 'from-slate-800 to-slate-600',
-  farmhouse: 'from-amber-700 to-amber-500',
   traditional: 'from-rose-800 to-rose-600',
+  farmhouse: 'from-amber-700 to-amber-500',
+  industrial: 'from-zinc-700 to-zinc-500',
+  minimalist: 'from-neutral-200 to-neutral-100',
   contemporary: 'from-violet-700 to-violet-500',
-  scandinavian: 'from-sky-200 to-sky-100',
-  transitional: 'from-stone-600 to-stone-400',
 };
 
 interface StyleSelectorProps {
