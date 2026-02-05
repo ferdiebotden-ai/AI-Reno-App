@@ -132,6 +132,9 @@ const LeadSubmissionSchema = z.object({
   utmSource: z.string().optional(),
   utmMedium: z.string().optional(),
   utmCampaign: z.string().optional(),
+
+  // Visualization link (from visualizer flow)
+  visualizationId: z.string().uuid().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -232,8 +235,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error creating lead:', error);
+      // Return detailed error for debugging (shows in UI during development)
       return NextResponse.json(
-        { error: 'Failed to create lead' },
+        {
+          error: `Failed to create lead: ${error.code || error.message || 'Unknown error'}`,
+          code: error.code,
+          hint: error.hint,
+        },
         { status: 500 }
       );
     }
@@ -251,6 +259,19 @@ export async function POST(request: NextRequest) {
           } as Json,
         })
         .eq('id', data.sessionId);
+    }
+
+    // Link visualization to lead if provided
+    if (data.visualizationId) {
+      const { error: vizError } = await supabase
+        .from('visualizations')
+        .update({ lead_id: lead.id })
+        .eq('id', data.visualizationId);
+
+      if (vizError) {
+        console.error('Failed to link visualization to lead:', vizError);
+        // Don't fail the request - lead was created successfully
+      }
     }
 
     // Log the action

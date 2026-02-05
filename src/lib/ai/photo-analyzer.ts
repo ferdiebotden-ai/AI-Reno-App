@@ -59,17 +59,17 @@ export const VisualizationRoomAnalysisSchema = z.object({
    */
   confidenceScore: z.number().min(0).max(1),
   /**
-   * Existing style assessment
+   * Existing style assessment (nullable for OpenAI JSON schema compatibility)
    */
-  currentStyle: z.string().optional(),
+  currentStyle: z.string().nullable(),
   /**
-   * Approximate dimensions if determinable
+   * Approximate dimensions if determinable (nullable for OpenAI JSON schema compatibility)
    */
-  estimatedDimensions: z.string().optional(),
+  estimatedDimensions: z.string().nullable(),
   /**
-   * Notable elements that could be design focal points
+   * Notable elements that could be design focal points (nullable for OpenAI JSON schema compatibility)
    */
-  potentialFocalPoints: z.array(z.string()).optional(),
+  potentialFocalPoints: z.array(z.string()).nullable(),
 });
 
 export type RoomAnalysis = z.infer<typeof VisualizationRoomAnalysisSchema>;
@@ -192,7 +192,7 @@ export async function quickPhotoAnalysis(imageBase64: string): Promise<{
         'other',
       ]),
       isValid: z.boolean(),
-      issues: z.array(z.string()).optional(),
+      issues: z.array(z.string()).nullable(),
       confidence: z.number().min(0).max(1),
     }),
     messages: [
@@ -247,7 +247,7 @@ export async function extractDesignIntent(
     schema: z.object({
       desiredChanges: z.array(z.string()).describe('Specific changes the user wants'),
       constraintsToPreserve: z.array(z.string()).describe('Elements they want to keep'),
-      stylePreference: z.string().optional().describe('Overall style if mentioned'),
+      stylePreference: z.string().nullable().describe('Overall style if mentioned'),
       materialPreferences: z.array(z.string()).describe('Specific materials mentioned'),
       budgetIndicators: z.array(z.string()).describe('Budget-related mentions'),
       confidence: z.number().min(0).max(1),
@@ -266,16 +266,16 @@ export async function extractDesignIntent(
     temperature: 0.3,
   });
 
-  // Handle exactOptionalPropertyTypes by building return object explicitly
-  const extracted: ReturnType<typeof extractDesignIntent> extends Promise<infer T> ? T : never = {
+  // Handle exactOptionalPropertyTypes by conditionally including optional fields
+  const base = {
     desiredChanges: result.object.desiredChanges,
     constraintsToPreserve: result.object.constraintsToPreserve,
     materialPreferences: result.object.materialPreferences,
     budgetIndicators: result.object.budgetIndicators,
     confidence: result.object.confidence,
   };
-  if (result.object.stylePreference) {
-    extracted.stylePreference = result.object.stylePreference;
-  }
-  return extracted;
+
+  return result.object.stylePreference
+    ? { ...base, stylePreference: result.object.stylePreference }
+    : base;
 }

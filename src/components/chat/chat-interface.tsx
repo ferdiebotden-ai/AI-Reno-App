@@ -16,12 +16,13 @@ import { ChatInput } from './chat-input';
 import { TypingIndicator } from './typing-indicator';
 import { EstimateSidebar, type EstimateData, type ProjectSummaryData, type FieldChangeInfo } from './estimate-sidebar';
 import { ProgressIndicator, detectProgressStep, type ProgressStep } from './progress-indicator';
-import { QuickReplies } from './quick-replies';
 import { SaveProgressModal } from './save-progress-modal';
 import { SubmitRequestModal } from './submit-request-modal';
 import { ProjectFormModal } from './project-form-modal';
+import { VoiceMode } from './voice-mode';
 import { compressImage, fileToBase64 } from '@/lib/utils/image';
-import { Save, FileText, Send } from 'lucide-react';
+import { Save, FileText, Send, Mic } from 'lucide-react';
+import type { TranscriptMessage } from '@/lib/realtime/config';
 
 // Helper to extract text content from UIMessage parts
 function getMessageContent(message: UIMessage): string {
@@ -96,6 +97,7 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
 
   // Determine starting messages based on context
   const welcomeMessage = visualizationContext
@@ -171,13 +173,14 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
   }, [messages, uploadedImages]);
 
   // Auto-scroll to bottom on new messages with smooth animation
+  // Access Radix ScrollArea viewport for proper scrolling
   useEffect(() => {
     if (scrollRef.current) {
-      // Use requestAnimationFrame to ensure DOM is updated before scrolling
       requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTo({
-            top: scrollRef.current.scrollHeight,
+        const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+          viewport.scrollTo({
+            top: viewport.scrollHeight,
             behavior: 'smooth',
           });
         }
@@ -288,6 +291,35 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
         finishLevel: prev.finishLevel || 'standard',
       }));
     }
+
+    // Extract goals/wants from user messages (look for patterns like "I want...", "We'd like...", "Looking to...")
+    const goalPatterns = [
+      /(?:i|we)(?:'d|'ll)?\s+(?:want|like|love)\s+(?:to\s+)?(.+?)(?:\.|,|$)/gi,
+      /(?:looking|hoping)\s+(?:to|for)\s+(.+?)(?:\.|,|$)/gi,
+      /(?:my|our)\s+goal\s+is\s+(?:to\s+)?(.+?)(?:\.|,|$)/gi,
+      /(?:need|must have)\s+(.+?)(?:\.|,|$)/gi,
+    ];
+
+    for (const pattern of goalPatterns) {
+      const matches = content.matchAll(pattern);
+      for (const match of matches) {
+        const goalText = match[1];
+        if (goalText && goalText.length > 10 && goalText.length < 200) {
+          setEstimateData((prev) => {
+            const existingGoals = prev.goals || '';
+            const newGoal = goalText.trim();
+            // Don't duplicate goals
+            if (existingGoals.toLowerCase().includes(newGoal.toLowerCase())) {
+              return prev;
+            }
+            return {
+              ...prev,
+              goals: existingGoals ? `${existingGoals}. ${newGoal}` : newGoal,
+            };
+          });
+        }
+      }
+    }
   }, []);
 
   const handleSend = async (message: string, images: File[]) => {
@@ -330,10 +362,42 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
     });
   };
 
-  // Handle quick reply selection
-  const handleQuickReply = (value: string) => {
-    handleSend(value, []);
-  };
+
+  // Handle voice mode toggle
+  const handleVoiceModeToggle = useCallback(() => {
+    setIsVoiceMode((prev) => !prev);
+  }, []);
+
+  // Handle voice transcript completion
+  const handleVoiceTranscriptComplete = useCallback((transcript: TranscriptMessage[]) => {
+    // Convert voice transcript to chat messages and add to conversation
+    const voiceMessages: ChatMessage[] = transcript.map((msg) => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      createdAt: msg.timestamp,
+    }));
+
+    // Add voice transcript to local messages
+    setLocalMessages((prev) => [...prev, ...voiceMessages]);
+
+    // Parse estimate data from all transcript messages
+    for (const msg of transcript) {
+      parseEstimateFromResponse(msg.content);
+    }
+
+    // Switch back to text mode
+    setIsVoiceMode(false);
+
+    // Add a transitional message
+    const transitionMessage: ChatMessage = {
+      id: `voice-complete-${Date.now()}`,
+      role: 'assistant',
+      content: "Thanks for sharing that with me! I've captured your project details from our voice conversation. Would you like to continue chatting, or are you ready to submit your request?",
+      createdAt: new Date(),
+    };
+    setLocalMessages((prev) => [...prev, transitionMessage]);
+  }, [parseEstimateFromResponse]);
 
   // Handle save progress
   const handleSaveProgress = async (email: string) => {
@@ -359,12 +423,16 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
     }
   };
 
-  // Handle sidebar data changes with optional chat acknowledgement
+  // Handle sidebar data changes with chat acknowledgement and AI context injection
   const handleEstimateDataChange = useCallback((changes: Partial<ProjectSummaryData>, changeInfo?: FieldChangeInfo) => {
     setEstimateData((prev) => ({ ...prev, ...changes }));
 
     // Inject chat acknowledgement when user edits via sidebar
     if (changeInfo && changeInfo.displayValue) {
+      // Create a system message to provide context to AI (not visible but logged)
+      const systemContext = `[SIDEBAR_EDIT] User updated ${changeInfo.field}: ${changeInfo.displayValue}`;
+
+      // Create visible acknowledgement message
       const acknowledgement = `Got it! I've updated your ${changeInfo.fieldLabel} to ${changeInfo.displayValue}.`;
       const ackMessage: ChatMessage = {
         id: `ack-${Date.now()}`,
@@ -372,7 +440,17 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
         content: acknowledgement,
         createdAt: new Date(),
       };
-      setLocalMessages((prev) => [...prev, ackMessage]);
+
+      // Log the sidebar edit for transcript (included in system context)
+      const editLogMessage: ChatMessage = {
+        id: `edit-log-${Date.now()}`,
+        role: 'user',
+        content: systemContext,
+        createdAt: new Date(),
+      };
+
+      // Add both messages (edit log first, then acknowledgement)
+      setLocalMessages((prev) => [...prev, editLogMessage, ackMessage]);
     }
   }, []);
 
@@ -398,6 +476,9 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
           role: m.role as 'user' | 'assistant',
           content: m.content,
         })),
+
+        // Link visualization if from visualizer flow
+        visualizationId: visualizationContext?.id,
       };
 
       // Submit to API
@@ -420,7 +501,7 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
         ...(contactInfo.phone && { contactPhone: contactInfo.phone }),
       }));
     },
-    [estimateData, localMessages]
+    [estimateData, localMessages, visualizationContext]
   );
 
   // Handle form submission (from form modal)
@@ -454,6 +535,9 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
           role: m.role as 'user' | 'assistant',
           content: m.content,
         })),
+
+        // Link visualization if from visualizer flow
+        visualizationId: visualizationContext?.id,
       };
 
       // Submit to API
@@ -484,13 +568,9 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
 
       setEstimateData((prev) => ({ ...prev, ...newData }));
     },
-    [localMessages]
+    [localMessages, visualizationContext]
   );
 
-  // Get last assistant message for quick replies
-  const lastAssistant = localMessages.filter(m => m.role === 'assistant').pop();
-  const lastAssistantMessage = lastAssistant?.content || '';
-  const lastAssistantMessageId = lastAssistant?.id;
 
   // Show save button only after conversation has started
   const showSaveButton = localMessages.length > 1;
@@ -509,24 +589,46 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
 
   return (
     <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden bg-background">
+      {/* Voice Mode Overlay */}
+      {isVoiceMode && (
+        <div className="absolute inset-0 z-50 bg-background lg:relative lg:flex-1">
+          <VoiceMode
+            onTranscriptComplete={handleVoiceTranscriptComplete}
+            onSwitchToText={() => setIsVoiceMode(false)}
+            className="h-full"
+          />
+        </div>
+      )}
+
       {/* Chat area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${isVoiceMode ? 'hidden lg:flex' : ''}`}>
         {/* Progress indicator with save button */}
-        <div className="border-b border-border px-4 py-3">
+        <div className="border-b border-border px-4 py-3 flex-shrink-0">
           <div className="flex items-center justify-between gap-4">
             <ProgressIndicator currentStep={progressStep} hasPhoto={photosCount > 0} className="flex-1" />
-            {showSaveButton && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Voice mode button */}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowSaveModal(true)}
-                className="flex-shrink-0"
+                onClick={handleVoiceModeToggle}
+                className="text-[#D32F2F] border-[#D32F2F]/30 hover:bg-[#D32F2F]/10"
               >
-                <Save className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Save Progress</span>
-                <span className="sm:hidden">Save</span>
+                <Mic className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Voice</span>
               </Button>
-            )}
+              {showSaveButton && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSaveModal(true)}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Save Progress</span>
+                  <span className="sm:hidden">Save</span>
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Switch to Form option - show after project type is detected */}
@@ -547,7 +649,7 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
         </div>
 
         {/* Messages */}
-        <ScrollArea ref={scrollRef} className="flex-1 p-4">
+        <ScrollArea ref={scrollRef} className="flex-1 min-h-0 p-4">
           <div className="max-w-3xl mx-auto space-y-1">
             {localMessages.map((message) => (
               <MessageBubble
@@ -556,6 +658,7 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
                 content={message.content}
                 images={message.images}
                 timestamp={message.createdAt}
+                data-testid={`${message.role}-message`}
               />
             ))}
             {isLoading && <TypingIndicator />}
@@ -569,7 +672,7 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
 
         {/* Mobile estimate card - inline above quick replies */}
         {(sidebarData.projectType || photosCount > 0) && (
-          <div className="lg:hidden px-4 py-2 border-t border-border">
+          <div className="lg:hidden px-4 py-2 border-t border-border flex-shrink-0">
             <EstimateSidebar
               data={sidebarData}
               isLoading={isLoading}
@@ -580,40 +683,36 @@ export function ChatInterface({ initialMessages, sessionId: initialSessionId, vi
           </div>
         )}
 
-        {/* Quick replies */}
-        <QuickReplies
-          lastMessage={lastAssistantMessage}
-          lastMessageId={lastAssistantMessageId}
-          onSelect={handleQuickReply}
-          disabled={isLoading}
-          className="px-4 py-2 border-t border-border"
-        />
-
         {/* Input */}
-        <ChatInput
-          onSend={handleSend}
-          disabled={isLoading}
-          placeholder="Describe your renovation project..."
-        />
+        <div className="flex-shrink-0">
+          <ChatInput
+            onSend={handleSend}
+            onVoiceModeToggle={handleVoiceModeToggle}
+            disabled={isLoading}
+            placeholder="Describe your renovation project..."
+            showVoiceButton={!isVoiceMode}
+          />
+        </div>
 
         {/* Submit Request CTA - shown after minimum data collected, below chat input */}
         {sidebarData.projectType && !sidebarData.contactEmail ? (
-          <div className="px-4 py-3 pb-6 border-t border-border bg-muted/30">
+          <div className="px-4 py-3 pb-6 border-t border-border bg-muted/30 flex-shrink-0">
             <Button
               onClick={() => setShowSubmitModal(true)}
               className="w-full bg-[#D32F2F] hover:bg-[#B71C1C] text-white h-12 text-base font-semibold"
               size="lg"
+              data-testid="request-quote-button"
             >
               <Send className="h-5 w-5 mr-2" />
-              Submit Request for Quote
+              Submit Request Now
             </Button>
             <p className="text-xs text-center text-muted-foreground mt-2">
-              Ready to proceed? We&apos;ll follow up within 24 hours.
+              In a hurry? Skip the chat and get your quote within 24 hours.
             </p>
           </div>
         ) : (
           /* Bottom spacer when no submit button */
-          <div className="h-4" />
+          <div className="h-4 flex-shrink-0" />
         )}
       </div>
 

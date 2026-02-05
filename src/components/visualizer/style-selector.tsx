@@ -62,14 +62,14 @@ const STYLE_OPTIONS: StyleOption[] = [
   },
 ];
 
-// Placeholder colors for style cards (would be replaced with actual images)
-const STYLE_COLORS: Record<DesignStyle, string> = {
-  modern: 'from-slate-800 to-slate-600',
-  traditional: 'from-rose-800 to-rose-600',
-  farmhouse: 'from-amber-700 to-amber-500',
-  industrial: 'from-zinc-700 to-zinc-500',
-  minimalist: 'from-neutral-200 to-neutral-100',
-  contemporary: 'from-violet-700 to-violet-500',
+// AI-generated style preview images
+const STYLE_IMAGES: Record<DesignStyle, string> = {
+  modern: '/images/styles/modern.png',
+  traditional: '/images/styles/traditional.png',
+  farmhouse: '/images/styles/farmhouse.png',
+  industrial: '/images/styles/industrial.png',
+  minimalist: '/images/styles/minimalist.png',
+  contemporary: '/images/styles/contemporary.png',
 };
 
 interface StyleSelectorProps {
@@ -108,15 +108,14 @@ export function StyleSelector({
                 isSelected && 'ring-2 ring-primary'
               )}
             >
-              {/* Background gradient (placeholder for image) */}
-              <div
-                className={cn(
-                  'aspect-[4/3] bg-gradient-to-br',
-                  STYLE_COLORS[option.id]
-                )}
-              >
-                {/* Overlay pattern */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.3)_100%)]" />
+              {/* Style preview image */}
+              <div className="aspect-[4/3] relative">
+                <img
+                  src={STYLE_IMAGES[option.id]}
+                  alt={`${option.label} style kitchen`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
               </div>
 
               {/* Content overlay */}

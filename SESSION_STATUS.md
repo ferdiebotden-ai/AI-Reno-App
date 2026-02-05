@@ -1,6 +1,6 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 5, 2026 (AI Visualizer World-Class Enhancement)
+> **Last Updated:** February 5, 2026 (Visualizer Bugfixes & Style Previews)
 > **Status:** LAUNCHED - Production Ready
 > **Current Phase:** Phase 5 - Testing & Launch (COMPLETE) + Visualizer Enhancement (7 Phases COMPLETE)
 
@@ -113,6 +113,43 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: February 5, 2026 (Visualizer Bugfixes & Style Previews)
+**Completed:**
+- Fixed OpenAI schema validation errors (`.optional()` → `.nullable()` for structured outputs)
+- Added Google AI API key to environment
+- Applied database migration for `photo_analysis` column
+- Fixed visualization-to-lead linking when lead is created from visualizer flow
+- Generated AI style preview images for style selector (6 kitchen images)
+
+**Bugfixes:**
+1. **Photo Analyzer Schema** - OpenAI's structured output requires all properties in `required` array. Changed `currentStyle`, `estimatedDimensions`, `potentialFocalPoints` from `.optional()` to `.nullable()`
+2. **Visualization Linking** - Visualizations weren't linked to leads. Added `visualizationId` to lead submission schema and linking logic in `/api/leads` POST handler
+3. **Database Migration** - Applied `enhanced_visualizations_columns` migration to add `photo_analysis`, `conversation_context`, `prompt_used` columns
+
+**New Features:**
+- **Style Preview Images** - Generated 6 AI kitchen images (modern, traditional, farmhouse, industrial, minimalist, contemporary) using Gemini
+- **Script** - Created `scripts/generate-style-previews.ts` for regenerating style images
+- **Style Selector** - Updated to use real AI-generated images instead of gradient placeholders
+
+**Files Modified:**
+- `src/lib/ai/photo-analyzer.ts` - Fixed schema for OpenAI compatibility
+- `src/app/api/leads/route.ts` - Added visualizationId handling
+- `src/components/chat/chat-interface.tsx` - Pass visualizationId when creating lead
+- `src/components/visualizer/style-selector.tsx` - Use AI-generated preview images
+
+**Files Created:**
+- `scripts/generate-style-previews.ts` - Script to generate style images
+- `public/images/styles/*.png` - 6 AI-generated style preview images
+
+**Build Status:** ✅ Passing
+
+**Next Session:**
+1. Test visualization-to-lead linking end-to-end
+2. Verify admin visualization panel shows linked visualizations
+3. Apply visualization_metrics migration if needed
+
+---
 
 ### Session: February 5, 2026 (Visualizer Test Plan Execution)
 **Completed:**
