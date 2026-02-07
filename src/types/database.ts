@@ -402,6 +402,217 @@ export type Database = {
         };
         Relationships: [];
       };
+      invoices: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          invoice_number: string;
+          lead_id: string | null;
+          quote_draft_id: string | null;
+          status: InvoiceStatus;
+          line_items: Json;
+          subtotal: number;
+          contingency_percent: number;
+          contingency_amount: number;
+          hst_amount: number;
+          total: number;
+          amount_paid: number;
+          balance_due: number;
+          deposit_required: number;
+          deposit_received: boolean;
+          customer_name: string;
+          customer_email: string;
+          customer_phone: string | null;
+          customer_address: string | null;
+          customer_city: string;
+          customer_province: string;
+          customer_postal_code: string | null;
+          issue_date: string;
+          due_date: string;
+          sent_at: string | null;
+          pdf_url: string | null;
+          notes: string | null;
+          internal_notes: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          invoice_number: string;
+          lead_id?: string | null;
+          quote_draft_id?: string | null;
+          status?: InvoiceStatus;
+          line_items: Json;
+          subtotal: number;
+          contingency_percent?: number;
+          contingency_amount?: number;
+          hst_amount: number;
+          total: number;
+          amount_paid?: number;
+          balance_due: number;
+          deposit_required?: number;
+          deposit_received?: boolean;
+          customer_name: string;
+          customer_email: string;
+          customer_phone?: string | null;
+          customer_address?: string | null;
+          customer_city?: string;
+          customer_province?: string;
+          customer_postal_code?: string | null;
+          issue_date?: string;
+          due_date?: string;
+          sent_at?: string | null;
+          pdf_url?: string | null;
+          notes?: string | null;
+          internal_notes?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          invoice_number?: string;
+          lead_id?: string | null;
+          quote_draft_id?: string | null;
+          status?: InvoiceStatus;
+          line_items?: Json;
+          subtotal?: number;
+          contingency_percent?: number;
+          contingency_amount?: number;
+          hst_amount?: number;
+          total?: number;
+          amount_paid?: number;
+          balance_due?: number;
+          deposit_required?: number;
+          deposit_received?: boolean;
+          customer_name?: string;
+          customer_email?: string;
+          customer_phone?: string | null;
+          customer_address?: string | null;
+          customer_city?: string;
+          customer_province?: string;
+          customer_postal_code?: string | null;
+          issue_date?: string;
+          due_date?: string;
+          sent_at?: string | null;
+          pdf_url?: string | null;
+          notes?: string | null;
+          internal_notes?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'invoices_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'invoices_quote_draft_id_fkey';
+            columns: ['quote_draft_id'];
+            isOneToOne: false;
+            referencedRelation: 'quote_drafts';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      payments: {
+        Row: {
+          id: string;
+          created_at: string;
+          invoice_id: string;
+          amount: number;
+          payment_method: PaymentMethod;
+          payment_date: string;
+          reference_number: string | null;
+          recorded_by: string | null;
+          notes: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          invoice_id: string;
+          amount: number;
+          payment_method: PaymentMethod;
+          payment_date?: string;
+          reference_number?: string | null;
+          recorded_by?: string | null;
+          notes?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          invoice_id?: string;
+          amount?: number;
+          payment_method?: PaymentMethod;
+          payment_date?: string;
+          reference_number?: string | null;
+          recorded_by?: string | null;
+          notes?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'payments_invoice_id_fkey';
+            columns: ['invoice_id'];
+            isOneToOne: false;
+            referencedRelation: 'invoices';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      drawings: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          name: string;
+          description: string | null;
+          lead_id: string | null;
+          drawing_data: Json;
+          thumbnail_url: string | null;
+          status: DrawingStatus;
+          permit_number: string | null;
+          pdf_url: string | null;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          name: string;
+          description?: string | null;
+          lead_id?: string | null;
+          drawing_data?: Json;
+          thumbnail_url?: string | null;
+          status?: DrawingStatus;
+          permit_number?: string | null;
+          pdf_url?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          name?: string;
+          description?: string | null;
+          lead_id?: string | null;
+          drawing_data?: Json;
+          thumbnail_url?: string | null;
+          status?: DrawingStatus;
+          permit_number?: string | null;
+          pdf_url?: string | null;
+          created_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'drawings_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -427,6 +638,9 @@ export type FinishLevel = 'economy' | 'standard' | 'premium';
 export type ChatSessionState = 'active' | 'completed' | 'expired' | 'abandoned';
 export type VisualizationRoomType = 'kitchen' | 'bathroom' | 'living_room' | 'bedroom' | 'basement' | 'dining_room';
 export type VisualizationStyle = 'modern' | 'traditional' | 'farmhouse' | 'industrial' | 'minimalist' | 'contemporary';
+export type InvoiceStatus = 'draft' | 'sent' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled';
+export type PaymentMethod = 'cash' | 'cheque' | 'etransfer' | 'credit_card';
+export type DrawingStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
 
 // Helper types for convenience
 export type Lead = Database['public']['Tables']['leads']['Row'];
@@ -452,7 +666,18 @@ export type AdminSettings = Database['public']['Tables']['admin_settings']['Row'
 export type AdminSettingsInsert = Database['public']['Tables']['admin_settings']['Insert'];
 export type AdminSettingsUpdate = Database['public']['Tables']['admin_settings']['Update'];
 
-// Quote line item type (used in quote_drafts.line_items)
+export type Invoice = Database['public']['Tables']['invoices']['Row'];
+export type InvoiceInsert = Database['public']['Tables']['invoices']['Insert'];
+export type InvoiceUpdate = Database['public']['Tables']['invoices']['Update'];
+
+export type Payment = Database['public']['Tables']['payments']['Row'];
+export type PaymentInsert = Database['public']['Tables']['payments']['Insert'];
+
+export type Drawing = Database['public']['Tables']['drawings']['Row'];
+export type DrawingInsert = Database['public']['Tables']['drawings']['Insert'];
+export type DrawingUpdate = Database['public']['Tables']['drawings']['Update'];
+
+// Quote line item type (used in quote_drafts.line_items and invoices.line_items)
 export interface QuoteLineItem {
   description: string;
   category: string;

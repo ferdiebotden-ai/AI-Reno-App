@@ -8,6 +8,7 @@ import { ChatTranscript } from '@/components/admin/chat-transcript';
 import { QuoteEditor } from '@/components/admin/quote-editor';
 import { AuditLogView } from '@/components/admin/audit-log';
 import { LeadVisualizationPanel } from '@/components/admin/lead-visualization-panel';
+import { LeadDrawingsPanel } from '@/components/admin/lead-drawings-panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export const dynamic = 'force-dynamic';
@@ -67,6 +68,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="visualizations">Visualizations</TabsTrigger>
           <TabsTrigger value="quote">Quote</TabsTrigger>
+          <TabsTrigger value="drawings">Drawings</TabsTrigger>
           <TabsTrigger value="transcript">Chat</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
@@ -104,6 +106,11 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             customerEmail={lead.email}
             customerName={lead.name}
           />
+        </TabsContent>
+
+        {/* Drawings Tab */}
+        <TabsContent value="drawings">
+          <LeadDrawingsPanel leadId={lead.id} />
         </TabsContent>
 
         {/* Chat Transcript Tab */}

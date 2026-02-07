@@ -1,8 +1,8 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 5, 2026 (Voice Chat Overhaul & Admin Demo Link)
+> **Last Updated:** February 6, 2026 (Invoicing + Drawings)
 > **Status:** LAUNCHED - Production Ready & Deployed
-> **Current Phase:** Phase 5 - Testing & Launch (COMPLETE) + Visualizer Enhancement (7 Phases COMPLETE)
+> **Current Phase:** Phase 5 - Testing & Launch (COMPLETE) + Visualizer Enhancement (COMPLETE) + Accounting & Drawings (COMPLETE)
 
 ## North Star (Don't Forget)
 We're building an AI-native lead-to-quote platform for renovation contractors. Users chat with AI to describe their project, upload photos for instant visualization, and get ballpark estimates in minutes instead of days. First client: Red White Reno (Stratford, ON).
@@ -13,8 +13,8 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 
 | Metric | Status |
 |--------|--------|
-| Current Phase | Phase 5: Testing & Launch (COMPLETE) |
-| Next Task ID | N/A - All PRD Tasks Complete |
+| Current Phase | Phase 6: Accounting & Drawings (COMPLETE) |
+| Next Task ID | N/A - All Tasks Complete (DEV-001 through DEV-106) |
 | Blockers | None |
 | Build Status | Passing |
 | Unit Tests | 139/139 passing (55 core + 84 visualizer) |
@@ -112,7 +112,91 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 
 ---
 
+### Phase 6: Accounting & Drawings (DEV-073 to DEV-106) - COMPLETE
+- [x] DEV-073: Invoices & payments database migration
+- [x] DEV-074: Drawings database migration
+- [x] DEV-075: TypeScript types for invoices, payments, drawings
+- [x] DEV-076: Zod validation schemas (invoice, drawing)
+- [x] DEV-077: Invoice CRUD API routes (list, create, detail, update, cancel)
+- [x] DEV-078: Payment recording API route
+- [x] DEV-079: Invoice PDF generation API route
+- [x] DEV-080: Invoice email send API route
+- [x] DEV-081: Sage 50 CSV export API route
+- [x] DEV-082: Admin sidebar navigation (Invoices + Drawings)
+- [x] DEV-083: Invoice list page with status filters
+- [x] DEV-084: Invoice detail page with payment history
+- [x] DEV-085: Record payment dialog
+- [x] DEV-086: Send invoice dialog
+- [x] DEV-087: Invoice PDF template
+- [x] DEV-088: Invoice email template
+- [x] DEV-089: Drawing CRUD API routes
+- [x] DEV-090: Drawings list page (grid view)
+- [x] DEV-091: Drawing detail/editor page (Chili3D placeholder)
+- [x] DEV-092: Invoice metrics dashboard widget
+- [x] DEV-093: Drawings tab on lead detail page
+- [x] DEV-094-106: Dashboard integration, build verification, migrations applied
+
+---
+
 ## Recent Session Log
+
+### Session: February 6, 2026 (Full Invoicing System + Architecture Drawings)
+**Completed:**
+- Full invoicing system: database → API → UI → PDF → email → Sage CSV export
+- Architecture drawings: database → API → admin list/detail pages
+- Dashboard integration: invoice metrics widget + drawings tab on lead detail
+- 2 database migrations applied to production Supabase (invoices/payments + drawings)
+- Security advisors checked — no new issues from changes
+
+**Database Migrations Applied:**
+1. `20260207100000_invoices_and_payments.sql` — invoices, payments, invoice_sequences tables; `next_invoice_number()` function; `payment_balance_update()` trigger; RLS policies
+2. `20260207200000_drawings_table.sql` — drawings table with status workflow, lead linking, JSONB drawing data; RLS policies
+
+**New API Routes (7):**
+- `POST/GET /api/invoices` — Create invoice from quote, list with filters
+- `GET/PUT/DELETE /api/invoices/[id]` — Detail with payments, update, cancel
+- `POST/GET /api/invoices/[id]/payments` — Record payment, list payments
+- `GET /api/invoices/[id]/pdf` — Generate invoice PDF
+- `POST /api/invoices/[id]/send` — Send invoice email with PDF attachment
+- `GET /api/invoices/export/sage` — Sage 50 CSV download
+- `POST/GET /api/drawings`, `GET/PUT/DELETE /api/drawings/[id]` — Drawing CRUD
+
+**New Admin Pages (4):**
+- `/admin/invoices` — Invoice list with status filter tabs
+- `/admin/invoices/[id]` — Invoice detail with payment history, actions
+- `/admin/drawings` — Drawing grid with thumbnails
+- `/admin/drawings/[id]` — Drawing metadata editor (Chili3D iframe placeholder)
+
+**New Components:**
+- `invoice-metrics-widget.tsx` — Dashboard revenue/balance metrics
+- `lead-drawings-panel.tsx` — Drawings tab on lead detail page
+
+**New Templates:**
+- `src/lib/pdf/invoice-template.tsx` — Invoice PDF (adapted from quote template)
+- `src/lib/email/invoice-email.tsx` — Invoice email template
+- `src/lib/export/sage-csv.ts` — Sage 50-compatible CSV generator
+
+**Key TypeScript Strict Mode Fixes:**
+- `params['id']` bracket notation for index signatures
+- `InvoiceStatus` type casting for Supabase `.eq()` calls
+- `undefined → null` coalescing for `exactOptionalPropertyTypes`
+- `new Uint8Array(buffer)` for PDF response body
+- `z.record(z.string(), z.unknown())` two-arg format
+
+**Build Status:** Passing (51 routes including 7 new API + 4 new admin pages)
+
+**Blockers:**
+- RESEND_API_KEY still needed for email functionality (invoice send)
+- Chili3D iframe deployment deferred (need to build from source + deploy separately)
+
+**Next Steps:**
+1. Deploy to Vercel production
+2. Write unit tests for invoice schemas, Sage CSV, balance calculations
+3. Write E2E tests for invoice CRUD and drawing management
+4. Build and deploy Chili3D for iframe embedding
+5. Add RESEND_API_KEY for email delivery
+
+---
 
 ### Session: February 5, 2026 (Voice Chat Overhaul & Admin Demo Link)
 **Completed:**
@@ -440,15 +524,18 @@ None
 
 ## Notes for Next Session
 
-### PROJECT STATUS: PRODUCTION READY
-All PRD tasks (DEV-001 through DEV-071) are complete. The platform is ready for production use.
+### PROJECT STATUS: PRODUCTION READY + ACCOUNTING & DRAWINGS COMPLETE
+All tasks (DEV-001 through DEV-106) are complete. Full platform with invoicing, payments, Sage export, and architecture drawings.
 
 ### Post-Launch Priority Tasks
-1. **Set up UptimeRobot** - External uptime monitoring
-2. **Configure Sentry** - Error tracking and alerting
-3. **Create legal pages** - Privacy Policy, Terms of Service
-4. **Write user documentation** - Admin dashboard guide, FAQ
-5. **Schedule client walkthrough** - Red White Reno training session
+1. **Deploy invoicing + drawings to Vercel** - Code ready, needs deployment
+2. **Add RESEND_API_KEY** - Required for invoice email delivery
+3. **Build and deploy Chili3D** - Standalone CAD app for iframe embedding
+4. **Write invoice + drawing tests** - Unit tests for schemas/calculations, E2E for flows
+5. **Set up UptimeRobot** - External uptime monitoring
+6. **Configure Sentry** - Error tracking and alerting
+7. **Create legal pages** - Privacy Policy, Terms of Service
+8. **Schedule client walkthrough** - Red White Reno training session
 
 ### Admin User Setup
 To grant admin access to a user:
@@ -468,6 +555,8 @@ SELECT set_admin_role('email@example.com');
 - **Voice Mode** - Real-time voice conversation via OpenAI Realtime API
 - **AI Design Visualizer** - 4-step flow: Photo → Room → Style → Constraints → Generate
 - **Admin Dashboard** - Lead management, AI quote generation, PDF quotes, email delivery
+- **Invoicing System** - Create from quotes, record payments, generate PDFs, send emails, Sage 50 CSV export
+- **Architecture Drawings** - Drawing management with status workflow, lead linking (Chili3D CAD pending)
 
 ---
 
@@ -475,6 +564,7 @@ SELECT set_admin_role('email@example.com');
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-06 | Invoicing + Drawings | Full invoicing system (CRUD, payments, PDF, email, Sage CSV), architecture drawings (CRUD, admin pages), dashboard integration, 2 migrations applied |
 | 2026-02-05 | Voice Chat Overhaul | GA model upgrade, semantic VAD, transcript ordering fix, scroll fix, UX redesign, tablet layout, admin demo link |
 | 2026-02-05 | Pre-Deployment Hardening | Error boundaries, admin layout fix, AI error handling, service client guard, E2E fixes, full source sync, Vercel deploy |
 | 2026-02-05 | Enhanced Loading Experiences | Reusable StepProgress + PdfSkeleton components, multi-step progress in submit modal and quote send wizard |

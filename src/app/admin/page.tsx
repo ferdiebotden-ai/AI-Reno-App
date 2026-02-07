@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/db/server';
 import { MetricsCards } from '@/components/admin/metrics-cards';
 import { RecentLeads } from '@/components/admin/recent-leads';
 import { VisualizationMetricsWidget } from '@/components/admin/visualization-metrics-widget';
+import { InvoiceMetricsWidget } from '@/components/admin/invoice-metrics-widget';
 
 export const dynamic = 'force-dynamic';
 
@@ -147,8 +148,8 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Empty placeholder for balance */}
-        <div />
+        {/* Invoice metrics */}
+        <InvoiceMetricsWidget />
       </div>
     </div>
   );
