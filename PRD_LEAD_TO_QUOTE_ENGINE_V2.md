@@ -1,9 +1,9 @@
 # Product Requirements Document: AI-Native Renovation Lead-to-Quote Engine
 
-**Version:** 3.2
-**Date:** February 5, 2026
-**Author:** Claude (Cowork Mode) + Claude Code (Opus 4.5)
-**Primary Builder:** Claude Code (Opus 4.5)
+**Version:** 4.0
+**Date:** February 7, 2026
+**Author:** Claude (Cowork Mode) + Claude Code (Opus 4.6)
+**Primary Builder:** Claude Code (Opus 4.6)
 **Target Client:** Red White Reno (Initial) → Productized SaaS (Scale)
 **Status:** ✅ PRODUCTION - Live at https://leadquoteenginev2.vercel.app
 
@@ -17,17 +17,19 @@
 4. [Feature 2: AI Design Visualizer](#4-feature-2-ai-design-visualizer)
 5. [Feature 3: Marketing Website](#5-feature-3-marketing-website)
 6. [Feature 4: Admin Dashboard](#6-feature-4-admin-dashboard)
-7. [Technical Architecture](#7-technical-architecture)
-8. [AI Behavior Specification](#8-ai-behavior-specification)
-9. [User Experience Specification](#9-user-experience-specification)
-10. [Design System](#10-design-system)
-11. [Development Phases](#11-development-phases)
-12. [Security & Compliance](#12-security--compliance)
-13. [Testing Strategy](#13-testing-strategy)
-14. [Appendices](#14-appendices)
-15. [AI Stack Validation](#15-ai-stack-validation)
-16. [White-Label Configuration Guide](#16-white-label-configuration-guide) ← NEW
-17. [Implementation Status](#17-implementation-status) ← NEW
+7. [Feature 5: Invoicing & Payments](#7-feature-5-invoicing--payments)
+8. [Feature 6: Architecture Drawings & CAD Editor](#8-feature-6-architecture-drawings--cad-editor)
+9. [Technical Architecture](#9-technical-architecture)
+10. [AI Behavior Specification](#10-ai-behavior-specification)
+11. [User Experience Specification](#11-user-experience-specification)
+12. [Design System](#12-design-system)
+13. [Development Phases](#13-development-phases)
+14. [Security & Compliance](#14-security--compliance)
+15. [Testing Strategy](#15-testing-strategy)
+16. [Appendices](#16-appendices)
+17. [AI Stack Validation](#17-ai-stack-validation)
+18. [White-Label Configuration Guide](#18-white-label-configuration-guide)
+19. [Implementation Status](#19-implementation-status)
 
 ---
 
@@ -59,6 +61,8 @@ An AI-native web platform featuring:
 | **AI Quote Generation** | Auto-generate line items from chat context | Instant draft quotes, not just estimates | ✅ LIVE |
 | **AI Email Drafting** | Personalized quote emails from project context | Professional communication in seconds | ✅ LIVE |
 | **Multi-step Send Wizard** | Review → Preview PDF → Email → Send | Quality control without friction | ✅ LIVE |
+| **Invoicing & Payments** | Create invoices from quotes, record payments, Sage 50 export | End-to-end financial workflow | ✅ LIVE |
+| **Architecture Drawings** | Built-in permit-ready CAD editor with PDF export | No third-party CAD software needed | ✅ LIVE |
 
 ### 1.3 Success Metrics
 
@@ -75,8 +79,8 @@ An AI-native web platform featuring:
 
 - Full project management system (use existing tools)
 - CRM with email sequences (integrate with Mailchimp/HubSpot later)
-- Payment processing/invoicing (out of scope for v1)
-- 3D walkthrough or AR visualization (photo-to-photo only)
+- Online payment gateway (Stripe, Square, etc.) — payments are recorded manually
+- 3D walkthrough or AR visualization (2D CAD drawings + photo-to-photo visualization)
 - Contractor marketplace (single contractor per deployment)
 - Real-time collaboration/chat with contractor
 
@@ -136,7 +140,7 @@ An AI-native web platform featuring:
 - Checks email on phone throughout day
 - Prefers simple interfaces with minimal clicks
 - Wants to review AI work, not create from scratch
-- Uses QuickBooks for invoicing (integration potential)
+- Uses Sage 50 for accounting (CSV export supported); QuickBooks integration potential
 
 ### 2.3 User Journey Map: Homeowner Quote Flow
 
@@ -433,9 +437,7 @@ Note: Input fixed at bottom (thumb zone)
       Estimate sticky at bottom of chat
 ```
 
-### 3.7 Implementation Enhancements (Beyond PRD)
-
-The following features were added during implementation based on user testing feedback:
+### 3.7 Additional UX Features
 
 | Enhancement | Description | Rationale |
 |-------------|-------------|-----------|
@@ -838,6 +840,10 @@ redwhitereno.com/                          STATUS
     ├── /admin/leads                       ✅ Lead management
     ├── /admin/leads/[id]                  ✅ Lead detail
     ├── /admin/quotes                      ✅ Quotes list
+    ├── /admin/invoices                    ✅ Invoice management
+    ├── /admin/invoices/[id]               ✅ Invoice detail + payments
+    ├── /admin/drawings                    ✅ Drawing management (grid)
+    ├── /admin/drawings/[id]               ✅ CAD editor + metadata
     └── /admin/settings                    ✅ Configuration
 ```
 
@@ -904,9 +910,7 @@ The Admin Dashboard is the human-in-the-loop control center where the owner revi
    └── Just submitted, processing
 ```
 
-### 6.4 AI-Powered Enhancements (DEV-072)
-
-The following AI features were added post-PRD to significantly enhance contractor productivity:
+### 6.4 AI-Powered Enhancements
 
 #### 6.4.1 AI Quote Generation
 
@@ -1052,9 +1056,248 @@ The following AI features were added post-PRD to significantly enhance contracto
 
 ---
 
-## 7. Technical Architecture
+## 7. Feature 5: Invoicing & Payments
 
-### 7.1 Technology Stack (Actual Deployed Versions)
+### 7.1 Overview
+
+The invoicing system enables contractors to convert approved quotes into professional invoices, track payments, and export financial data to Sage 50 for accounting. This closes the loop from lead capture through to payment collection.
+
+### 7.2 User Stories
+
+| ID | As a... | I want to... | So that... |
+|----|---------|--------------|------------|
+| INV-US-001 | Contractor | Create an invoice from an approved quote | I don't have to re-enter line items |
+| INV-US-002 | Contractor | Record partial and full payments | I can track who has paid and what's outstanding |
+| INV-US-003 | Contractor | Generate a professional branded PDF invoice | I can send it to the client |
+| INV-US-004 | Contractor | Email invoices directly from the platform | I don't need a separate email tool |
+| INV-US-005 | Contractor | Export invoices to Sage 50 CSV format | My accountant can import transactions directly |
+| INV-US-006 | Contractor | See invoice metrics on the dashboard | I know my revenue and outstanding balances at a glance |
+
+### 7.3 Functional Requirements
+
+| ID | Requirement | Priority | Status |
+|----|-------------|----------|--------|
+| INV-001 | Create invoice from existing quote with pre-populated line items | Must Have | ✅ DONE |
+| INV-002 | Auto-generate sequential invoice numbers (INV-0001 format) | Must Have | ✅ DONE |
+| INV-003 | Invoice status workflow: draft → sent → partially_paid → paid → cancelled | Must Have | ✅ DONE |
+| INV-004 | Record payments with amount, date, method, and reference | Must Have | ✅ DONE |
+| INV-005 | Auto-update invoice status and balance when payments are recorded | Must Have | ✅ DONE |
+| INV-006 | Generate branded PDF invoice with title block | Must Have | ✅ DONE |
+| INV-007 | Send invoice via email with PDF attachment | Must Have | ✅ DONE |
+| INV-008 | Export invoices to Sage 50-compatible CSV | Should Have | ✅ DONE |
+| INV-009 | Invoice list page with status filter tabs | Must Have | ✅ DONE |
+| INV-010 | Invoice detail page with payment history | Must Have | ✅ DONE |
+| INV-011 | Dashboard widget showing revenue metrics (total invoiced, paid, outstanding) | Should Have | ✅ DONE |
+
+### 7.4 Invoice Status Workflow
+
+```
+[DRAFT] → [SENT] → [PARTIALLY_PAID] → [PAID]
+   │          │
+   │          └── Payment recorded < total → PARTIALLY_PAID
+   │          └── Payment recorded = total → PAID
+   │
+   └── [CANCELLED] (can cancel from any state except PAID)
+```
+
+### 7.5 Database Schema
+
+```sql
+-- Invoices table
+CREATE TABLE invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_number TEXT UNIQUE NOT NULL,
+  lead_id UUID REFERENCES leads(id),
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft','sent','partially_paid','paid','cancelled')),
+  line_items JSONB NOT NULL DEFAULT '[]',
+  subtotal NUMERIC(10,2) NOT NULL DEFAULT 0,
+  hst_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  total NUMERIC(10,2) NOT NULL DEFAULT 0,
+  amount_paid NUMERIC(10,2) NOT NULL DEFAULT 0,
+  balance_due NUMERIC(10,2) NOT NULL DEFAULT 0,
+  customer_name TEXT NOT NULL,
+  customer_email TEXT,
+  customer_phone TEXT,
+  customer_address TEXT,
+  notes TEXT,
+  due_date DATE,
+  sent_at TIMESTAMPTZ,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Payments table
+CREATE TABLE payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
+  amount NUMERIC(10,2) NOT NULL,
+  payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  method TEXT CHECK (method IN ('cash','cheque','e-transfer','credit_card','other')),
+  reference TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Invoice number sequence
+CREATE TABLE invoice_sequences (
+  id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  last_number INTEGER NOT NULL DEFAULT 0
+);
+```
+
+### 7.6 API Routes
+
+| Route | Method | Purpose | Auth |
+|-------|--------|---------|------|
+| `/api/invoices` | POST | Create invoice from quote | Admin |
+| `/api/invoices` | GET | List invoices with filters | Admin |
+| `/api/invoices/[id]` | GET | Invoice detail with payments | Admin |
+| `/api/invoices/[id]` | PUT | Update invoice | Admin |
+| `/api/invoices/[id]` | DELETE | Cancel invoice | Admin |
+| `/api/invoices/[id]/payments` | POST | Record payment | Admin |
+| `/api/invoices/[id]/payments` | GET | List payments | Admin |
+| `/api/invoices/[id]/pdf` | GET | Generate invoice PDF | Admin |
+| `/api/invoices/[id]/send` | POST | Email invoice with PDF | Admin |
+| `/api/invoices/export/sage` | GET | Sage 50 CSV download | Admin |
+
+### 7.7 Key Implementation Files
+
+- `src/app/admin/invoices/page.tsx` — Invoice list with status filter tabs
+- `src/app/admin/invoices/[id]/page.tsx` — Invoice detail with payment history
+- `src/app/api/invoices/` — Invoice CRUD API routes
+- `src/lib/pdf/invoice-template.tsx` — Branded invoice PDF template
+- `src/lib/email/invoice-email.tsx` — Invoice email template
+- `src/lib/export/sage-csv.ts` — Sage 50-compatible CSV generator
+- `src/components/admin/invoice-metrics-widget.tsx` — Dashboard revenue widget
+- `src/lib/schemas/invoice.ts` — Zod validation schemas
+
+---
+
+## 8. Feature 6: Architecture Drawings & CAD Editor
+
+### 8.1 Overview
+
+A built-in permit-ready CAD drawing tool that allows contractors to create architecture drawings (floor plans, elevations) directly in the platform. Drawings can be linked to leads, exported as professional PDFs with architectural title blocks, and used for permit submissions.
+
+### 8.2 User Stories
+
+| ID | As a... | I want to... | So that... |
+|----|---------|--------------|------------|
+| DRW-US-001 | Contractor | Create floor plans with walls, doors, and windows | I can produce permit-ready drawings |
+| DRW-US-002 | Contractor | Add dimensions and room labels | The drawings meet building permit requirements |
+| DRW-US-003 | Contractor | Place furniture from a catalog | I can show layout possibilities to clients |
+| DRW-US-004 | Contractor | Export drawings as PDF with a professional title block | I can submit to the building department |
+| DRW-US-005 | Contractor | Link drawings to specific leads | Everything stays organized per project |
+| DRW-US-006 | Contractor | Switch between 2D plan view and 3D perspective | I can visualize the space from different angles |
+
+### 8.3 Functional Requirements
+
+| ID | Requirement | Priority | Status |
+|----|-------------|----------|--------|
+| DRW-001 | Wall drawing tool with snap-to-grid and endpoint snapping | Must Have | ✅ DONE |
+| DRW-002 | Door and window placement on walls | Must Have | ✅ DONE |
+| DRW-003 | Furniture catalog with drag-and-drop placement | Should Have | ✅ DONE |
+| DRW-004 | Dimension tool with wall endpoint snapping | Must Have | ✅ DONE |
+| DRW-005 | Room label tool with automatic area calculation (Shoelace algorithm) | Must Have | ✅ DONE |
+| DRW-006 | Text annotation tool with optional leader lines | Should Have | ✅ DONE |
+| DRW-007 | Layer system (Walls, Doors/Windows, Furniture, Dimensions, Annotations) | Must Have | ✅ DONE |
+| DRW-008 | Undo/redo with history stack | Must Have | ✅ DONE |
+| DRW-009 | Auto-save with data fingerprint comparison | Must Have | ✅ DONE |
+| DRW-010 | Camera mode toggle (2D orthographic / 3D perspective) | Should Have | ✅ DONE |
+| DRW-011 | Unit toggle (metric/imperial) | Should Have | ✅ DONE |
+| DRW-012 | Export as PNG (high-res screenshot) | Must Have | ✅ DONE |
+| DRW-013 | Export as PDF with architectural title block, scale bar, north arrow | Must Have | ✅ DONE |
+| DRW-014 | Drawing status workflow: draft → submitted → approved / rejected | Must Have | ✅ DONE |
+| DRW-015 | Link drawings to leads | Should Have | ✅ DONE |
+| DRW-016 | Delete selected objects from toolbar | Must Have | ✅ DONE |
+| DRW-017 | Professional export filenames with date stamps (A-P-01 prefix) | Should Have | ✅ DONE |
+
+### 8.4 Drawing Tools
+
+| Tool | Shortcut | Description |
+|------|----------|-------------|
+| **Select** | V | Select and move objects |
+| **Wall** | W | Draw walls between two points |
+| **Door** | D | Place doors on walls |
+| **Window** | N | Place windows on walls |
+| **Furniture** | F | Open furniture catalog |
+| **Dimension** | M | Add dimension lines between points |
+| **Room Label** | L | Place room name + auto-calculated area |
+| **Text** | T | Place text annotations |
+
+### 8.5 Architectural Layers
+
+| Layer | Default | Contains |
+|-------|---------|----------|
+| Walls | Visible, Unlocked | Walls |
+| Doors & Windows | Visible, Unlocked | Doors, windows |
+| Furniture | Visible, Unlocked | Furniture objects |
+| Dimensions | Visible, Unlocked | Dimension lines |
+| Annotations | Visible, Unlocked | Room labels, text annotations |
+
+### 8.6 Export Formats
+
+**PNG Export:**
+- High-resolution (2x) canvas screenshot
+- Filename: `A-P-01_{ProjectName}_{YYYY-MM-DD}.png`
+
+**PDF Export (Print Layout):**
+- Paper sizes: Letter (8.5"x11"), Tabloid (11"x17")
+- Architectural scales: 1/4"=1'-0", 1/2"=1'-0", 1:50, 1:100
+- Title block with: project name, address, designer, date, sheet title, scale
+- Scale bar and north arrow (toggleable)
+- Filename: `A-P-01_{ProjectName}_{SheetTitle}_{YYYY-MM-DD}.pdf`
+
+### 8.7 Database Schema
+
+```sql
+CREATE TABLE drawings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft','submitted','approved','rejected')),
+  lead_id UUID REFERENCES leads(id),
+  drawing_data JSONB,          -- Serialized drawing state (walls, openings, objects, dimensions, labels, layers, camera)
+  thumbnail_url TEXT,
+  permit_number TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 8.8 Key Implementation Files
+
+**Editor Core:**
+- `src/components/cad/cad-editor.tsx` — Main editor layout (toolbar + canvas + sidebar)
+- `src/components/cad/canvas/cad-canvas.tsx` — Three.js/R3F canvas with all renderers
+- `src/components/cad/state/drawing-store.ts` — Zustand store (CRUD, undo/redo, camera)
+- `src/components/cad/state/drawing-types.ts` — TypeScript types for all drawing entities
+- `src/components/cad/state/drawing-serializer.ts` — Zod-validated serialization/deserialization
+
+**Panels:**
+- `src/components/cad/panels/toolbar.tsx` — Tool palette + undo/redo + delete
+- `src/components/cad/panels/editor-header.tsx` — Camera modes, units, save, export
+- `src/components/cad/panels/status-bar.tsx` — Cursor position, zoom, active tool
+- `src/components/cad/panels/layers-panel.tsx` — Layer visibility/lock toggles
+- `src/components/cad/panels/properties-panel.tsx` — Selected object property editor
+- `src/components/cad/panels/catalog-panel.tsx` — Furniture catalog
+- `src/components/cad/panels/export-dialog.tsx` — Quick Export + Print Layout tabs
+
+**Export:**
+- `src/components/cad/lib/export/pdf-generator.ts` — jsPDF-based PDF with title block
+- `src/components/cad/lib/export/canvas-capture.ts` — Canvas screenshot + download helpers
+
+**Admin Pages:**
+- `src/app/admin/drawings/page.tsx` — Drawing grid with thumbnails and status badges
+- `src/app/admin/drawings/[id]/page.tsx` — Drawing detail with CAD editor + metadata panel
+- `src/app/api/drawings/` — Drawing CRUD API routes
+
+---
+
+## 9. Technical Architecture
+
+### 9.1 Technology Stack (Actual Deployed Versions)
 
 | Layer | Technology | Version | Notes |
 |-------|------------|---------|-------|
@@ -1071,13 +1314,15 @@ The following AI features were added post-PRD to significantly enhance contracto
 | **AI Image Gen** | Google Gemini 3 Pro | @google/generative-ai | Native SDK for image generation |
 | **AI Structured** | Vercel AI SDK | 6.0.67 | For structured outputs with Zod |
 | **Email** | Resend | 6.9.1 | With React Email templates |
-| **PDF** | @react-pdf/renderer | Latest | Professional quote PDFs |
+| **PDF (Quotes/Invoices)** | @react-pdf/renderer | Latest | Professional quote and invoice PDFs |
+| **PDF (CAD Export)** | jsPDF | 2.5+ | CAD drawing PDF export with title block |
+| **3D/CAD** | Three.js + React Three Fiber | Latest | CAD editor canvas rendering |
 | **Tables** | TanStack React Table | 8.x | Admin leads table |
-| **Testing** | Vitest + Playwright | Latest | 55 unit + 85 E2E tests |
+| **Testing** | Vitest + Playwright | Latest | 230 unit + 268 E2E tests |
 | **Deployment** | Vercel | Latest | Production at leadquoteenginev2.vercel.app |
 | **Analytics** | Vercel Analytics | Built-in | Privacy-friendly |
 
-### 7.2 System Architecture Diagram
+### 9.2 System Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1099,6 +1344,8 @@ The following AI features were added post-PRD to significantly enhance contracto
 │  │  ┌──────────────────────────────────────────────────────────────┐  │   │
 │  │  │                    ADMIN DASHBOARD                            │  │   │
 │  │  │  • Lead Management  • Quote Editor  • PDF Generation        │  │   │
+│  │  │  • Invoicing & Payments  • CAD Drawing Editor               │  │   │
+│  │  │  • Sage 50 Export  • Architecture PDF Export                 │  │   │
 │  │  └──────────────────────────────────────────────────────────────┘  │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                       │                                      │
@@ -1147,7 +1394,7 @@ The following AI features were added post-PRD to significantly enhance contracto
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 7.3 Database Schema
+### 9.3 Database Schema
 
 ```sql
 -- =============================================
@@ -1224,7 +1471,7 @@ CREATE TABLE quote_drafts (
 
   -- Quote Content
   line_items JSONB NOT NULL, -- Array of {description, category, quantity, unit, unit_price, total}
-  ai_draft_json JSONB, -- Original AI-generated quote (DEV-072)
+  ai_draft_json JSONB, -- Original AI-generated quote
 
   -- Tiered Pricing (optional)
   tier_good JSONB,
@@ -1293,7 +1540,7 @@ CREATE TABLE chat_sessions (
 );
 
 -- =============================================
--- VISUALIZATIONS TABLE: AI-generated room visualizations (DEV-072)
+-- VISUALIZATIONS TABLE: AI-generated room visualizations
 -- =============================================
 CREATE TABLE visualizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1318,7 +1565,7 @@ CREATE TABLE visualizations (
 );
 
 -- =============================================
--- ADMIN SETTINGS TABLE: Configurable business settings (DEV-072)
+-- ADMIN SETTINGS TABLE: Configurable business settings
 -- =============================================
 CREATE TABLE admin_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1393,7 +1640,7 @@ CREATE TRIGGER quote_drafts_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 ```
 
-### 7.4 API Route Specifications
+### 9.4 API Route Specifications
 
 | Route | Method | Purpose | Auth Required | Status | Input | Output |
 |-------|--------|---------|---------------|--------|-------|--------|
@@ -1424,9 +1671,9 @@ CREATE TRIGGER quote_drafts_updated_at
 
 ---
 
-## 8. AI Behavior Specification
+## 10. AI Behavior Specification
 
-### 8.1 Quote Assistant System Prompt
+### 10.1 Quote Assistant System Prompt
 
 ```typescript
 const QUOTE_ASSISTANT_SYSTEM_PROMPT = `You are the Red White Reno Quote Assistant, a friendly and professional AI that helps homeowners get preliminary renovation estimates in Stratford, Ontario and surrounding areas.
@@ -1493,7 +1740,7 @@ If user mentions they used the visualizer, acknowledge it: "I see you've already
 IMPORTANT: Never make binding commitments on pricing. Always frame as preliminary estimates requiring verification.`;
 ```
 
-### 8.2 Structured Output Schemas (Zod)
+### 10.2 Structured Output Schemas (Zod)
 
 ```typescript
 import { z } from 'zod';
@@ -1572,7 +1819,7 @@ export const QuoteSchema = z.object({
 });
 ```
 
-### 8.3 Fallback Behaviors
+### 10.3 Fallback Behaviors
 
 | Scenario | Detection | Fallback Action |
 |----------|-----------|-----------------|
@@ -1585,7 +1832,7 @@ export const QuoteSchema = z.object({
 | Rate limit hit | 429 status | Queue request, show position in queue |
 | Session expired | 7-day TTL | Offer to send magic link to email to resume |
 
-### 8.4 Content Moderation
+### 10.4 Content Moderation
 
 All uploaded images pass through content moderation:
 
@@ -1606,9 +1853,9 @@ const moderationCheck = async (imageBase64: string) => {
 
 ---
 
-## 9. User Experience Specification
+## 11. User Experience Specification
 
-### 9.1 Loading States
+### 11.1 Loading States
 
 | Context | Loading Treatment | Duration Threshold |
 |---------|-------------------|--------------------|
@@ -1619,7 +1866,7 @@ const moderationCheck = async (imageBase64: string) => {
 | Quote generation | Skeleton of quote card | 0-5s |
 | Page navigation | Top progress bar (NProgress style) | 0-1s |
 
-### 9.2 Error States
+### 11.2 Error States
 
 | Error Type | Visual Treatment | User Action |
 |------------|------------------|-------------|
@@ -1630,7 +1877,7 @@ const moderationCheck = async (imageBase64: string) => {
 | Session expired | Modal with email input | Enter email for magic link |
 | 500 server error | Full-page error with contact | Contact support |
 
-### 9.3 Onboarding Flow (First-Time User)
+### 11.3 Onboarding Flow (First-Time User)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1671,7 +1918,7 @@ const moderationCheck = async (imageBase64: string) => {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 9.4 Mobile-Specific Patterns
+### 11.4 Mobile-Specific Patterns
 
 | Pattern | Implementation |
 |---------|----------------|
@@ -1684,7 +1931,7 @@ const moderationCheck = async (imageBase64: string) => {
 | **Orientation** | Lock to portrait for chat, allow landscape for visualizer results |
 | **Haptic Feedback** | Subtle vibration on button press (if supported) |
 
-### 9.5 Accessibility Requirements
+### 11.5 Accessibility Requirements
 
 | Requirement | Implementation |
 |-------------|----------------|
@@ -1699,9 +1946,9 @@ const moderationCheck = async (imageBase64: string) => {
 
 ---
 
-## 10. Design System
+## 12. Design System
 
-### 10.1 Color Palette
+### 12.1 Color Palette
 
 ```css
 :root {
@@ -1737,7 +1984,7 @@ const moderationCheck = async (imageBase64: string) => {
 }
 ```
 
-### 10.2 Typography
+### 12.2 Typography
 
 ```css
 :root {
@@ -1763,7 +2010,7 @@ const moderationCheck = async (imageBase64: string) => {
 }
 ```
 
-### 10.3 Spacing Scale
+### 12.3 Spacing Scale
 
 ```css
 :root {
@@ -1781,7 +2028,7 @@ const moderationCheck = async (imageBase64: string) => {
 }
 ```
 
-### 10.4 Component Library (shadcn/ui Subset)
+### 12.4 Component Library (shadcn/ui Subset)
 
 Required components from shadcn/ui:
 
@@ -1804,7 +2051,7 @@ Required components from shadcn/ui:
 | Avatar | User/AI indicators |
 | Slider | Before/after comparison |
 
-### 10.5 Animation Guidelines
+### 12.5 Animation Guidelines
 
 ```css
 /* Transitions */
@@ -1826,9 +2073,9 @@ Required components from shadcn/ui:
 
 ---
 
-## 11. Development Phases
+## 13. Development Phases
 
-**Status:** ✅ ALL PHASES COMPLETE (DEV-001 through DEV-072)
+**Status:** ✅ ALL PHASES COMPLETE (DEV-001 through DEV-106 + CAD Editor)
 **Actual Duration:** ~7 weeks
 **Production URL:** https://leadquoteenginev2.vercel.app
 
@@ -1933,7 +2180,7 @@ Required components from shadcn/ui:
 | DEV-070 | Monitoring setup (Vercel Analytics enabled) | 4 | ✅ |
 | DEV-071 | Go-live checklist (completed and documented) | 3 | ✅ |
 
-### Phase 6: Post-Launch Enhancements ✅ COMPLETE
+### Phase 6: AI Quote Workflow ✅ COMPLETE
 
 | Task ID | Task | Hours | Status |
 |---------|------|-------|--------|
@@ -1947,9 +2194,55 @@ Required components from shadcn/ui:
 - Database-backed Admin Settings
 - Professional PDF template matching sample invoice
 
-### Total Actual Hours: ~300 hours (~7.5 weeks)
+### Phase 7: Invoicing & Architecture Drawings ✅ COMPLETE
 
-### 11.1 Lessons Learned
+| Task ID | Task | Hours | Status |
+|---------|------|-------|--------|
+| DEV-073 | Invoices & payments database migration | 2 | ✅ |
+| DEV-074 | Drawings database migration | 2 | ✅ |
+| DEV-075 | TypeScript types for invoices, payments, drawings | 3 | ✅ |
+| DEV-076 | Zod validation schemas (invoice, drawing) | 3 | ✅ |
+| DEV-077 | Invoice CRUD API routes | 6 | ✅ |
+| DEV-078 | Payment recording API route | 3 | ✅ |
+| DEV-079 | Invoice PDF generation API route | 4 | ✅ |
+| DEV-080 | Invoice email send API route | 3 | ✅ |
+| DEV-081 | Sage 50 CSV export API route | 3 | ✅ |
+| DEV-082 | Admin sidebar navigation (Invoices + Drawings) | 2 | ✅ |
+| DEV-083 | Invoice list page with status filters | 4 | ✅ |
+| DEV-084 | Invoice detail page with payment history | 6 | ✅ |
+| DEV-085 | Record payment dialog | 3 | ✅ |
+| DEV-086 | Send invoice dialog | 2 | ✅ |
+| DEV-087 | Invoice PDF template | 4 | ✅ |
+| DEV-088 | Invoice email template | 2 | ✅ |
+| DEV-089 | Drawing CRUD API routes | 4 | ✅ |
+| DEV-090 | Drawings list page (grid view) | 3 | ✅ |
+| DEV-091 | Drawing detail/editor page | 4 | ✅ |
+| DEV-092 | Invoice metrics dashboard widget | 3 | ✅ |
+| DEV-093 | Drawings tab on lead detail page | 2 | ✅ |
+| DEV-094–106 | Dashboard integration, build verification, migrations | 8 | ✅ |
+
+### Phase 8: Permit-Ready CAD Editor ✅ COMPLETE
+
+| Task ID | Task | Hours | Status |
+|---------|------|-------|--------|
+| CAD-001 | Drawing store with Zustand (CRUD, undo/redo) | 8 | ✅ |
+| CAD-002 | Three.js/R3F canvas with wall, door, window rendering | 12 | ✅ |
+| CAD-003 | Furniture catalog with drag-and-drop | 4 | ✅ |
+| CAD-004 | Dimension tool with wall endpoint snapping | 6 | ✅ |
+| CAD-005 | Room label tool with Shoelace area calculation | 4 | ✅ |
+| CAD-006 | Text annotation tool with leader lines | 3 | ✅ |
+| CAD-007 | Layer system (5 architectural layers) | 4 | ✅ |
+| CAD-008 | Properties panel for selected objects | 4 | ✅ |
+| CAD-009 | Autosave with data fingerprint comparison | 3 | ✅ |
+| CAD-010 | Camera persistence (2D/3D toggle) | 2 | ✅ |
+| CAD-011 | PNG export (high-res canvas capture) | 2 | ✅ |
+| CAD-012 | PDF export with architectural title block | 6 | ✅ |
+| CAD-013 | Professional filenames with date stamps | 1 | ✅ |
+| CAD-014 | Delete tool in toolbar | 1 | ✅ |
+
+### Total Actual Hours: ~450 hours (~9 weeks)
+
+### 13.1 Lessons Learned
 
 | Area | Lesson |
 |------|--------|
@@ -1962,9 +2255,9 @@ Required components from shadcn/ui:
 
 ---
 
-## 12. Security & Compliance
+## 14. Security & Compliance
 
-### 12.1 PIPEDA Compliance (Canadian Privacy)
+### 14.1 PIPEDA Compliance (Canadian Privacy)
 
 | Requirement | Implementation |
 |-------------|----------------|
@@ -1975,7 +2268,7 @@ Required components from shadcn/ui:
 | Retention | Lead data retained 24 months, then anonymized |
 | Disclosure | AI processing clearly disclosed |
 
-### 12.2 CASL Compliance (Anti-Spam)
+### 14.2 CASL Compliance (Anti-Spam)
 
 | Requirement | Implementation |
 |-------------|----------------|
@@ -1985,7 +2278,7 @@ Required components from shadcn/ui:
 | Sender ID | Company name and address in footer |
 | Record keeping | Consent timestamp and source logged |
 
-### 12.3 AI Disclaimers
+### 14.3 AI Disclaimers
 
 **Quote Disclaimer (displayed with every estimate):**
 > "This is a preliminary AI-generated estimate based on the information you've shared. Final pricing requires an in-person assessment and may vary based on site conditions, material selections, and scope changes. This estimate is not a binding contract."
@@ -1993,7 +2286,7 @@ Required components from shadcn/ui:
 **Visualization Disclaimer (displayed on all generated images):**
 > "AI-generated concept for inspiration only. Actual results depend on structural feasibility, material availability, and design decisions."
 
-### 12.4 Security Measures
+### 14.4 Security Measures
 
 | Measure | Implementation |
 |---------|----------------|
@@ -2008,19 +2301,25 @@ Required components from shadcn/ui:
 
 ---
 
-## 13. Testing Strategy
+## 15. Testing Strategy
 
 **Status:** ✅ IMPLEMENTED
-- **Unit Tests:** 55 passing (Vitest)
-- **E2E Tests:** 85 passing, 23 skipped for viewport-specific (Playwright)
+- **Unit Tests:** 230 passing (Vitest — 9 test files)
+- **E2E Tests:** 268 passing, 48 skipped, 17 AI-dependent (Playwright)
 - **Build:** Passing (TypeScript strict mode)
 
-### 13.1 Unit Testing (55 Tests)
+### 15.1 Unit Testing (230 Tests)
 
 **Test Files:**
 - `tests/unit/pricing-engine.test.ts` - 19 tests for pricing calculations
 - `tests/unit/schemas.test.ts` - 24 tests for Zod schema validation
 - `tests/unit/utils.test.ts` - 12 tests for utility functions
+- `tests/unit/invoice-calculations.test.ts` - 10 tests for invoice balance/HST calculations
+- `tests/unit/invoice-schemas.test.ts` - 66 tests for invoice/payment/drawing Zod schemas
+- `tests/unit/sage-csv.test.ts` - 15 tests for Sage 50 CSV export
+- `tests/unit/visualizer/schemas.test.ts` - 24 tests for visualizer schema validation
+- `tests/unit/visualizer/prompt-builder.test.ts` - 20 tests for prompt construction
+- `tests/unit/visualizer/conversation.test.ts` - 40 tests for conversation state machine
 
 **Configuration:** `vitest.config.ts`
 ```typescript
@@ -2035,13 +2334,17 @@ export default defineConfig({
 });
 ```
 
-### 13.2 E2E Test Scenarios (Playwright) - 85 Tests
+### 15.2 E2E Test Scenarios (Playwright) - 268+ Tests
 
 **Test Files:**
-- `tests/e2e/quote-happy-path.spec.ts` - Quote flow E2E tests
-- `tests/e2e/visualizer-flow.spec.ts` - Visualizer E2E tests
-- `tests/e2e/admin-login.spec.ts` - Admin authentication E2E tests
-- `tests/e2e/mobile-experience.spec.ts` - Mobile-specific E2E tests
+- `tests/e2e/strict/prd-quote-happy-path.spec.ts` - Quote flow E2E tests
+- `tests/e2e/strict/prd-quote-mobile.spec.ts` - Mobile quote flow tests
+- `tests/e2e/strict/prd-admin-login.spec.ts` - Admin authentication E2E tests
+- `tests/e2e/strict/prd-admin-drawings.spec.ts` - Drawings management E2E tests
+- `tests/e2e/strict/prd-admin-invoices.spec.ts` - Invoice management E2E tests
+- `tests/e2e/strict/prd-visualizer-happy-path.spec.ts` - Visualizer E2E tests
+- `tests/e2e/visualizer/quick-mode.spec.ts` - Quick mode visualizer tests
+- `tests/e2e/visualizer/mobile.spec.ts` - Mobile viewport tests
 
 **Viewport Configuration:** `playwright.config.ts`
 | Project | Width | Height | Notes |
@@ -2060,7 +2363,7 @@ export default defineConfig({
 | Mobile touch targets | ✅ | All interactive elements ≥44px |
 | Mobile thumb zone | ✅ | CTAs in bottom 30% of screen |
 
-### 13.3 Security Testing
+### 15.3 Security Testing
 
 | Test | Status | Notes |
 |------|--------|-------|
@@ -2070,7 +2373,7 @@ export default defineConfig({
 | Debug routes removed | ✅ | /test-db, /api/debug-auth deleted |
 | Security bypass removed | ✅ | Development bypass block removed from proxy.ts |
 
-### 13.4 Performance Benchmarks
+### 15.4 Performance Benchmarks
 
 | Metric | Target | Actual | Tool |
 |--------|--------|--------|------|
@@ -2082,9 +2385,9 @@ export default defineConfig({
 
 ---
 
-## 14. Appendices
+## 16. Appendices
 
-### 14.1 Competitive Reference Links
+### 16.1 Competitive Reference Links
 
 **Lead Generation Platforms:**
 - [Handoff.ai](https://www.handoff.ai/) - AI estimating for remodelers
@@ -2099,7 +2402,7 @@ export default defineConfig({
 **AI Chatbot Examples:**
 - [Predictive Sales AI](https://www.predictivesalesai.com/) - Home services chatbot
 
-### 14.2 Pricing Logic Details
+### 16.2 Pricing Logic Details
 
 ```typescript
 // Pricing constants (for system prompt and calculation engine)
@@ -2133,7 +2436,7 @@ const PRICING_GUIDELINES = {
 };
 ```
 
-### 14.3 Glossary
+### 16.3 Glossary
 
 | Term | Definition |
 |------|------------|
@@ -2148,9 +2451,9 @@ const PRICING_GUIDELINES = {
 
 ---
 
-## 15. AI Stack Validation (January 31, 2026)
+## 17. AI Stack Validation (January 31, 2026)
 
-### 15.1 Validated Technology Choices
+### 17.1 Validated Technology Choices
 
 The following AI technologies have been researched and validated as of January 31, 2026:
 
@@ -2162,7 +2465,7 @@ The following AI technologies have been researched and validated as of January 3
 | **Voice Mode** | OpenAI Realtime API | VALIDATED | Real-time voice conversation via WebRTC. Enables natural spoken dialogue for renovation project descriptions. See Section 3.8. |
 | **Estimation** | Internal Pricing Guidelines | VALIDATED | RSMeans Data ($1,000+/year) is overkill for SMB. Internal guidelines with contractor input are more practical and maintainable. |
 
-### 15.2 Alternative Considerations
+### 17.2 Alternative Considerations
 
 | Alternative | Considered For | Decision |
 |-------------|----------------|----------|
@@ -2170,7 +2473,7 @@ The following AI technologies have been researched and validated as of January 3
 | Claude 3.5 Sonnet | Chat AI | GPT-5.2 selected for consistency with vision/realtime ecosystem. Claude remains viable alternative. |
 | ElevenLabs | Voice synthesis | Not needed for v1. Consider for quote read-back in v2. |
 
-### 15.3 API Pricing Reference (as of Jan 2026)
+### 17.3 API Pricing Reference (as of Jan 2026)
 
 | API | Tier | Price | Est. Monthly Cost |
 |-----|------|-------|-------------------|
@@ -2182,7 +2485,7 @@ The following AI technologies have been researched and validated as of January 3
 | Resend | Free tier | $0 | $0 (100 emails/day) |
 | **Total Estimated** | | | **~$115/month** |
 
-### 15.4 Implementation Packages
+### 17.4 Implementation Packages
 
 ```bash
 # Required AI packages
@@ -2193,7 +2496,7 @@ npm install @supabase/supabase-js @supabase/ssr
 npm install resend @react-email/components
 ```
 
-### 15.5 Model Configuration
+### 17.5 Model Configuration
 
 ```typescript
 // lib/ai/config.ts
@@ -2228,11 +2531,11 @@ export const AI_CONFIG = {
 
 ---
 
-## 16. White-Label Configuration Guide
+## 18. White-Label Configuration Guide
 
 This platform is designed for easy deployment to multiple renovation contractors. The architecture separates branding, content, and configuration from core logic.
 
-### 16.1 Branding Configuration
+### 18.1 Branding Configuration
 
 | Element | Location | How to Change |
 |---------|----------|---------------|
@@ -2243,7 +2546,7 @@ This platform is designed for easy deployment to multiple renovation contractors
 | **Location** | System prompts, PDF template | Update city/province references (e.g., "Stratford, Ontario") |
 | **Social Links** | `src/components/footer.tsx` | Update social media URLs |
 
-### 16.2 Pricing Configuration
+### 18.2 Pricing Configuration
 
 All pricing is database-driven via the `admin_settings` table. No code changes required.
 
@@ -2259,7 +2562,7 @@ All pricing is database-driven via the `admin_settings` table. No code changes r
 | `deposit_percent` | Required deposit percentage | /admin/settings → Rates tab |
 | `quote_validity_days` | How long quotes are valid | /admin/settings → Rates tab |
 
-### 16.3 Service Types
+### 18.3 Service Types
 
 To add or modify service types:
 
@@ -2271,7 +2574,7 @@ To add or modify service types:
 | `src/lib/schemas/ai-quote.ts` | Add to LINE_ITEM_TEMPLATES |
 | Database | Add constraint to `leads.project_type` column |
 
-### 16.4 Deployment Checklist for New Contractor
+### 18.4 Deployment Checklist for New Contractor
 
 ```
 PRE-DEPLOYMENT
@@ -2312,7 +2615,7 @@ LAUNCH
 20. [ ] Go live!
 ```
 
-### 16.5 Multi-Tenant Architecture (Future)
+### 18.5 Multi-Tenant Architecture (Future)
 
 Current architecture: **Single-tenant** (one contractor per deployment)
 
@@ -2325,47 +2628,36 @@ For productized SaaS with multiple contractors:
 
 ---
 
-## 17. Implementation Status
+## 19. Implementation Status
 
-### 17.1 Feature Completion Summary
+### 19.1 Feature Completion Summary
 
 | Feature | Status | Completion | Notes |
 |---------|--------|------------|-------|
 | **Marketing Website** | ✅ LIVE | 95% | SEO, Google Reviews deferred |
-| **AI Quote Assistant** | ✅ LIVE | 100% | Exceeds PRD with form option |
-| **AI Design Visualizer** | ✅ LIVE | 100% | Real Gemini API, shareable results |
-| **Admin Dashboard** | ✅ LIVE | 110% | Includes AI quote + email features |
-| **PDF Generation** | ✅ LIVE | 100% | Professional branded template |
-| **Email Delivery** | ✅ LIVE | 100% | With AI drafting |
-| **Testing** | ✅ COMPLETE | 100% | 55 unit + 85 E2E tests |
+| **AI Quote Assistant** | ✅ LIVE | 100% | Chat + voice + form modes |
+| **AI Design Visualizer** | ✅ LIVE | 100% | Conversation + quick modes, shareable results |
+| **Admin Dashboard** | ✅ LIVE | 100% | AI quote generation, AI email drafting, multi-step send wizard |
+| **Invoicing & Payments** | ✅ LIVE | 100% | Create from quotes, payments, PDF, email, Sage 50 CSV |
+| **Architecture Drawings** | ✅ LIVE | 100% | Built-in CAD editor with PDF export |
+| **PDF Generation** | ✅ LIVE | 100% | Quotes + invoices + CAD drawings |
+| **Email Delivery** | ✅ LIVE | 100% | With AI drafting (requires RESEND_API_KEY) |
+| **Testing** | ✅ COMPLETE | 100% | 230 unit + 268 E2E tests |
 | **Documentation** | ✅ COMPLETE | 100% | README, API docs, deployment guide |
 
-### 17.2 Production Metrics
+### 19.2 Production Metrics
 
 | Metric | Value |
 |--------|-------|
 | **Production URL** | https://leadquoteenginev2.vercel.app |
 | **Build Status** | Passing (Next.js 16.1.6 with Turbopack) |
-| **Build Time** | ~2.5 seconds |
-| **Unit Tests** | 55 passing |
-| **E2E Tests** | 85 passing, 23 skipped (viewport-specific) |
-| **TypeScript** | Strict mode, no errors |
+| **Build Time** | ~3 seconds |
+| **Unit Tests** | 230 passing (9 test files) |
+| **E2E Tests** | 268 passing, 48 skipped, 17 AI-dependent |
+| **TypeScript** | Strict mode (`exactOptionalPropertyTypes`), no errors |
 | **Security** | Admin RBAC enforced, RLS on all tables |
 
-### 17.3 Post-Launch Enhancements (DEV-072)
-
-Features added after initial PRD that should be included in all future deployments:
-
-| Enhancement | Description | Business Value |
-|-------------|-------------|----------------|
-| **AI Quote Generation** | Auto-generate line items from chat context | Saves 30+ min per quote |
-| **AI Quote Suggestions UI** | Accept/modify/reject with confidence scores | Transparency + control |
-| **AI Email Drafting** | Personalized quote emails | Professional communication |
-| **Multi-step Send Wizard** | Review → Preview → Email → Send | Quality assurance |
-| **Admin Settings** | Database-backed configuration | No-code price updates |
-| **Professional PDF** | Matches sample invoice format | Brand consistency |
-
-### 17.4 Known Limitations & Future Work
+### 19.3 Known Limitations & Future Work
 
 | Limitation | Priority | Notes |
 |------------|----------|-------|
@@ -2374,37 +2666,48 @@ Features added after initial PRD that should be included in all future deploymen
 | Good/Better/Best tiers | Low | Database schema ready |
 | Privacy Policy page | Medium | Legal content needed |
 | Terms of Service page | Medium | Legal content needed |
+| RESEND_API_KEY | High | Email delivery requires this key |
 | Multi-tenant architecture | Future | For SaaS productization |
 
-### 17.5 Repository Structure
+### 19.4 Repository Structure
 
 ```
 lead_quote_engine_v2/
 ├── src/
 │   ├── app/                    # Next.js App Router pages
 │   │   ├── admin/              # Admin dashboard pages
+│   │   │   ├── drawings/       # Drawing management + CAD editor
+│   │   │   ├── invoices/       # Invoice management + payments
+│   │   │   ├── leads/          # Lead management
+│   │   │   └── settings/       # Admin settings
 │   │   ├── api/                # API routes
+│   │   │   ├── drawings/       # Drawing CRUD
+│   │   │   ├── invoices/       # Invoice CRUD, payments, PDF, email, Sage export
+│   │   │   ├── leads/          # Lead CRUD
+│   │   │   └── ai/             # AI chat, visualize, quote generation
 │   │   ├── estimate/           # Quote assistant
 │   │   ├── visualizer/         # Design visualizer
 │   │   └── ...                 # Marketing pages
 │   ├── components/
 │   │   ├── admin/              # Admin components
+│   │   ├── cad/                # CAD editor (canvas, panels, tools, state, lib)
 │   │   ├── chat/               # Chat components
 │   │   ├── visualizer/         # Visualizer components
 │   │   └── ui/                 # shadcn/ui components
 │   ├── lib/
 │   │   ├── ai/                 # AI services
 │   │   ├── db/                 # Supabase client
-│   │   ├── email/              # Email templates
-│   │   ├── pdf/                # PDF generation
+│   │   ├── email/              # Email templates (quotes + invoices)
+│   │   ├── export/             # Sage 50 CSV export
+│   │   ├── pdf/                # PDF generation (quotes + invoices)
 │   │   ├── pricing/            # Pricing engine
-│   │   └── schemas/            # Zod schemas
+│   │   └── schemas/            # Zod schemas (leads, quotes, invoices, drawings, visualizer)
 │   └── types/                  # TypeScript types
 ├── supabase/
-│   └── migrations/             # Database migrations
+│   └── migrations/             # Database migrations (9 applied)
 ├── tests/
-│   ├── unit/                   # Vitest unit tests
-│   └── e2e/                    # Playwright E2E tests
+│   ├── unit/                   # Vitest unit tests (230 tests)
+│   └── e2e/                    # Playwright E2E tests (268+ tests)
 ├── docs/
 │   ├── API.md                  # API documentation
 │   ├── DEPLOYMENT.md           # Deployment guide
@@ -2419,10 +2722,12 @@ lead_quote_engine_v2/
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | Jan 21, 2026 | Manus AI | Initial PRD |
-| 2.0 | Jan 31, 2026 | Claude (Cowork) | Enhanced with UX specs, AI behavior, competitive insights |
-| 2.1 | Jan 31, 2026 | Claude (Cowork) | Added AI Stack Validation section |
-| 3.0 | Feb 2, 2026 | Claude Code (Opus 4.5) | Post-implementation documentation with white-label guide |
-| 3.1 | Feb 3, 2026 | Claude Code (Opus 4.5) | Added Voice Mode documentation (Section 3.8) |
+| 2.0 | Jan 31, 2026 | Claude (Cowork) | UX specs, AI behavior, competitive insights |
+| 2.1 | Jan 31, 2026 | Claude (Cowork) | AI Stack Validation section |
+| 3.0 | Feb 2, 2026 | Claude Code (Opus 4.5) | Implementation documentation, white-label guide |
+| 3.1 | Feb 3, 2026 | Claude Code (Opus 4.5) | Voice Mode documentation |
+| 3.2 | Feb 5, 2026 | Claude Code (Opus 4.5) | Visualizer enhancements |
+| 4.0 | Feb 7, 2026 | Claude Code (Opus 4.6) | Invoicing & Payments, Architecture Drawings & CAD Editor |
 
 ---
 
