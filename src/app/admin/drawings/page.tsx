@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId } from '@/lib/db/site';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +34,7 @@ async function getDrawings() {
   const { data: drawings, error } = await supabase
     .from('drawings')
     .select('*')
+    .eq('site_id', getSiteId())
     .order('created_at', { ascending: false });
 
   if (error) {

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId } from '@/lib/db/site';
 import { LeadDetailHeader } from '@/components/admin/lead-detail-header';
 import { LeadContactCard } from '@/components/admin/lead-contact-card';
 import { LeadProjectCard } from '@/components/admin/lead-project-card';
@@ -25,6 +26,7 @@ async function getLeadData(id: string) {
     .from('leads')
     .select('*')
     .eq('id', id)
+    .eq('site_id', getSiteId())
     .single();
 
   if (leadError || !lead) {
@@ -36,6 +38,7 @@ async function getLeadData(id: string) {
     .from('quote_drafts')
     .select('*')
     .eq('lead_id', id)
+    .eq('site_id', getSiteId())
     .order('version', { ascending: false })
     .limit(1)
     .maybeSingle();

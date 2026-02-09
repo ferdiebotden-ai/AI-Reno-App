@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId } from '@/lib/db/site';
 import { generateSageCsv } from '@/lib/export/sage-csv';
 import type { Invoice, InvoiceStatus } from '@/types/database';
 
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('invoices')
       .select('*')
+      .eq('site_id', getSiteId())
       .neq('status', 'cancelled')
       .neq('status', 'draft')
       .order('issue_date', { ascending: true });

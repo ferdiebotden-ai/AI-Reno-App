@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId, withSiteId } from '@/lib/db/site';
 import { DrawingCreateSchema } from '@/lib/schemas/drawing';
-import type { DrawingInsert, DrawingStatus } from '@/types/database';
+import type { DrawingStatus } from '@/types/database';
 
 /**
  * GET /api/drawings
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('drawings')
       .select('*', { count: 'exact' })
+      .eq('site_id', getSiteId())
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient();
 
-    const drawingData: DrawingInsert = {
+    const drawingData = {
       name: validation.data.name,
       description: validation.data.description ?? null,
       lead_id: validation.data.lead_id ?? null,
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     const { data: drawing, error } = await supabase
       .from('drawings')
-      .insert(drawingData)
+      .insert(withSiteId(drawingData))
       .select('*')
       .single();
 

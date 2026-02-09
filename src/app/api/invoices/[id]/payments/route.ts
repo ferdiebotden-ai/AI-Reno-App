@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId, withSiteId } from '@/lib/db/site';
 import { PaymentRecordSchema } from '@/lib/schemas/invoice';
-import type { PaymentInsert, Json } from '@/types/database';
+import type { Json } from '@/types/database';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -21,6 +22,7 @@ export async function GET(
       .from('payments')
       .select('*')
       .eq('invoice_id', id)
+      .eq('site_id', getSiteId())
       .order('payment_date', { ascending: false });
 
     if (error) {
@@ -65,6 +67,7 @@ export async function POST(
       .from('invoices')
       .select('id, lead_id, status, balance_due')
       .eq('id', id)
+      .eq('site_id', getSiteId())
       .single();
 
     if (invoiceError || !invoice) {
@@ -85,7 +88,7 @@ export async function POST(
       );
     }
 
-    const paymentData: PaymentInsert = {
+    const paymentData = {
       invoice_id: id,
       amount: validation.data.amount,
       payment_method: validation.data.payment_method,
@@ -96,7 +99,7 @@ export async function POST(
 
     const { data: payment, error: insertError } = await supabase
       .from('payments')
-      .insert(paymentData)
+      .insert(withSiteId(paymentData))
       .select('*')
       .single();
 
@@ -109,7 +112,7 @@ export async function POST(
     }
 
     // Audit log
-    await supabase.from('audit_log').insert({
+    await supabase.from('audit_log').insert(withSiteId({
       lead_id: invoice.lead_id,
       action: 'payment_recorded',
       new_values: {
@@ -117,13 +120,14 @@ export async function POST(
         amount: validation.data.amount,
         method: validation.data.payment_method,
       } as unknown as Json,
-    });
+    }));
 
     // Fetch updated invoice to return current state
     const { data: updatedInvoice } = await supabase
       .from('invoices')
       .select('*')
       .eq('id', id)
+      .eq('site_id', getSiteId())
       .single();
 
     return NextResponse.json({

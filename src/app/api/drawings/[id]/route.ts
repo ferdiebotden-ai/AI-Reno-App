@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId } from '@/lib/db/site';
 import { DrawingUpdateSchema } from '@/lib/schemas/drawing';
 import type { Json } from '@/types/database';
 
@@ -21,6 +22,7 @@ export async function GET(
       .from('drawings')
       .select('*')
       .eq('id', id)
+      .eq('site_id', getSiteId())
       .single();
 
     if (error) {

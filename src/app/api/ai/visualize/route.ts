@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId, withSiteId } from '@/lib/db/site';
 import {
   visualizationRequestSchema,
   type VisualizationResponse,
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
     const dbRoomType = roomType === 'exterior' ? 'living_room' : roomType;
     const { data: visualization, error: dbError } = await supabase
       .from('visualizations')
-      .insert({
+      .insert(withSiteId({
         original_photo_url: originalImageUrl,
         room_type: dbRoomType as 'kitchen' | 'bathroom' | 'living_room' | 'bedroom' | 'basement' | 'dining_room',
         style: style,
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest) {
         // Enhanced fields (will be ignored if columns don't exist yet)
         ...(photoAnalysis && { photo_analysis: photoAnalysis }),
         ...(conversationContext && { conversation_context: conversationContext }),
-      })
+      }))
       .select()
       .single();
 
@@ -481,7 +482,7 @@ async function recordVisualizationMetrics(
 
   // Insert metrics record (table may not exist until migration applied)
   // Using type assertion since visualization_metrics table is created by migration
-  const metricsData = {
+  const metricsData = withSiteId({
     visualization_id: metrics.visualizationId,
     generation_time_ms: metrics.generationTimeMs,
     retry_count: metrics.retryCount || 0,
@@ -499,7 +500,7 @@ async function recordVisualizationMetrics(
     error_occurred: metrics.errorOccurred || false,
     error_code: metrics.errorCode,
     error_message: metrics.errorMessage,
-  };
+  });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase.from as any)('visualization_metrics').insert(metricsData);

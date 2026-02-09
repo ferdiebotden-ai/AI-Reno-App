@@ -20,6 +20,7 @@ export type Database = {
       leads: {
         Row: {
           id: string;
+          site_id: string;
           created_at: string;
           updated_at: string;
           status: LeadStatus;
@@ -56,6 +57,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          site_id: string;
           created_at?: string;
           updated_at?: string;
           status?: LeadStatus;
@@ -92,6 +94,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          site_id?: string;
           created_at?: string;
           updated_at?: string;
           status?: LeadStatus;
@@ -131,6 +134,7 @@ export type Database = {
       quote_drafts: {
         Row: {
           id: string;
+          site_id: string;
           lead_id: string;
           created_at: string;
           updated_at: string;
@@ -161,6 +165,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          site_id: string;
           lead_id: string;
           created_at?: string;
           updated_at?: string;
@@ -191,6 +196,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          site_id?: string;
           lead_id?: string;
           created_at?: string;
           updated_at?: string;
@@ -232,6 +238,7 @@ export type Database = {
       audit_log: {
         Row: {
           id: string;
+          site_id: string;
           created_at: string;
           user_id: string | null;
           lead_id: string | null;
@@ -243,6 +250,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          site_id: string;
           created_at?: string;
           user_id?: string | null;
           lead_id?: string | null;
@@ -254,6 +262,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          site_id?: string;
           created_at?: string;
           user_id?: string | null;
           lead_id?: string | null;
@@ -268,6 +277,7 @@ export type Database = {
       chat_sessions: {
         Row: {
           id: string;
+          site_id: string;
           created_at: string;
           updated_at: string;
           expires_at: string;
@@ -280,6 +290,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          site_id: string;
           created_at?: string;
           updated_at?: string;
           expires_at?: string;
@@ -292,6 +303,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          site_id?: string;
           created_at?: string;
           updated_at?: string;
           expires_at?: string;
@@ -307,6 +319,7 @@ export type Database = {
       visualizations: {
         Row: {
           id: string;
+          site_id: string;
           created_at: string;
           updated_at: string;
           email: string | null;
@@ -327,6 +340,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          site_id: string;
           created_at?: string;
           updated_at?: string;
           email?: string | null;
@@ -347,6 +361,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          site_id?: string;
           created_at?: string;
           updated_at?: string;
           email?: string | null;
@@ -378,6 +393,7 @@ export type Database = {
       admin_settings: {
         Row: {
           id: string;
+          site_id: string;
           key: string;
           value: Json;
           description: string | null;
@@ -386,6 +402,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          site_id: string;
           key: string;
           value: Json;
           description?: string | null;
@@ -394,6 +411,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          site_id?: string;
           key?: string;
           value?: Json;
           description?: string | null;
@@ -405,6 +423,7 @@ export type Database = {
       invoices: {
         Row: {
           id: string;
+          site_id: string;
           created_at: string;
           updated_at: string;
           invoice_number: string;
@@ -437,6 +456,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          site_id: string;
           created_at?: string;
           updated_at?: string;
           invoice_number: string;
@@ -469,6 +489,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          site_id?: string;
           created_at?: string;
           updated_at?: string;
           invoice_number?: string;
@@ -519,6 +540,7 @@ export type Database = {
       payments: {
         Row: {
           id: string;
+          site_id: string;
           created_at: string;
           invoice_id: string;
           amount: number;
@@ -530,6 +552,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          site_id: string;
           created_at?: string;
           invoice_id: string;
           amount: number;
@@ -541,6 +564,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          site_id?: string;
           created_at?: string;
           invoice_id?: string;
           amount?: number;
@@ -563,6 +587,7 @@ export type Database = {
       drawings: {
         Row: {
           id: string;
+          site_id: string;
           created_at: string;
           updated_at: string;
           name: string;
@@ -577,6 +602,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          site_id: string;
           created_at?: string;
           updated_at?: string;
           name: string;
@@ -591,6 +617,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          site_id?: string;
           created_at?: string;
           updated_at?: string;
           name?: string;

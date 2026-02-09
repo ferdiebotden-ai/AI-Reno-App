@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId } from '@/lib/db/site';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,6 +71,7 @@ async function getInvoices(searchParams: InvoicesPageProps['searchParams']) {
   let query = supabase
     .from('invoices')
     .select('*', { count: 'exact' })
+    .eq('site_id', getSiteId())
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 

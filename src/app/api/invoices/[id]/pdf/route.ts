@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId } from '@/lib/db/site';
 import { InvoicePdfDocument } from '@/lib/pdf/invoice-template';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -22,6 +23,7 @@ export async function GET(
       .from('invoices')
       .select('*')
       .eq('id', id)
+      .eq('site_id', getSiteId())
       .single();
 
     if (error || !invoice) {
@@ -32,6 +34,7 @@ export async function GET(
       .from('payments')
       .select('*')
       .eq('invoice_id', id)
+      .eq('site_id', getSiteId())
       .order('payment_date', { ascending: true });
 
     // Generate PDF

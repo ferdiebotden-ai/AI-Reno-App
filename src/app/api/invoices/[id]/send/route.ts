@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId, withSiteId } from '@/lib/db/site';
 import { InvoiceSendSchema } from '@/lib/schemas/invoice';
 import { InvoicePdfDocument } from '@/lib/pdf/invoice-template';
 import type { Json } from '@/types/database';
@@ -35,6 +36,7 @@ export async function POST(
       .from('invoices')
       .select('*')
       .eq('id', id)
+      .eq('site_id', getSiteId())
       .single();
 
     if (error || !invoice) {
@@ -45,6 +47,7 @@ export async function POST(
       .from('payments')
       .select('*')
       .eq('invoice_id', id)
+      .eq('site_id', getSiteId())
       .order('payment_date', { ascending: true });
 
     // Generate PDF
@@ -113,17 +116,18 @@ export async function POST(
     await supabase
       .from('invoices')
       .update({ status: 'sent', sent_at: new Date().toISOString() })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('site_id', getSiteId());
 
     // Audit log
-    await supabase.from('audit_log').insert({
+    await supabase.from('audit_log').insert(withSiteId({
       lead_id: invoice.lead_id,
       action: 'invoice_sent',
       new_values: {
         invoice_id: id,
         sent_to: to_email,
       } as unknown as Json,
-    });
+    }));
 
     return NextResponse.json({ success: true, message: 'Invoice sent' });
   } catch (error) {

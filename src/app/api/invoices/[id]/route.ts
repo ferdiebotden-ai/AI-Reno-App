@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId, withSiteId } from '@/lib/db/site';
 import { InvoiceUpdateSchema } from '@/lib/schemas/invoice';
 import type { InvoiceUpdate, Json } from '@/types/database';
 
@@ -21,6 +22,7 @@ export async function GET(
       .from('invoices')
       .select('*')
       .eq('id', id)
+      .eq('site_id', getSiteId())
       .single();
 
     if (error) {
@@ -36,6 +38,7 @@ export async function GET(
       .from('payments')
       .select('*')
       .eq('invoice_id', id)
+      .eq('site_id', getSiteId())
       .order('payment_date', { ascending: false });
 
     return NextResponse.json({
@@ -82,6 +85,7 @@ export async function PUT(
       .from('invoices')
       .update(updatePayload)
       .eq('id', id)
+      .eq('site_id', getSiteId())
       .select('*')
       .single();
 
@@ -94,11 +98,11 @@ export async function PUT(
     }
 
     // Audit log
-    await supabase.from('audit_log').insert({
+    await supabase.from('audit_log').insert(withSiteId({
       lead_id: invoice.lead_id,
       action: 'invoice_updated',
       new_values: validation.data as unknown as Json,
-    });
+    }));
 
     return NextResponse.json({ success: true, data: invoice });
   } catch (error) {
@@ -123,6 +127,7 @@ export async function DELETE(
       .from('invoices')
       .update({ status: 'cancelled' })
       .eq('id', id)
+      .eq('site_id', getSiteId())
       .select('*')
       .single();
 
@@ -135,11 +140,11 @@ export async function DELETE(
     }
 
     // Audit log
-    await supabase.from('audit_log').insert({
+    await supabase.from('audit_log').insert(withSiteId({
       lead_id: invoice.lead_id,
       action: 'invoice_cancelled',
       new_values: { invoice_id: id } as unknown as Json,
-    });
+    }));
 
     return NextResponse.json({ success: true, data: invoice });
   } catch (error) {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/db/server';
+import { getSiteId, withSiteId } from '@/lib/db/site';
 import { InvoiceCreateSchema } from '@/lib/schemas/invoice';
-import type { InvoiceInsert, InvoiceStatus, Json } from '@/types/database';
+import type { InvoiceStatus, Json } from '@/types/database';
 
 const HST_PERCENT = 13;
 const DEPOSIT_PERCENT = 50;
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('invoices')
       .select('*', { count: 'exact' })
+      .eq('site_id', getSiteId())
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -80,8 +82,8 @@ export async function POST(request: NextRequest) {
 
     // Fetch lead + quote data
     const [leadResult, quoteResult] = await Promise.all([
-      supabase.from('leads').select('*').eq('id', lead_id).single(),
-      supabase.from('quote_drafts').select('*').eq('id', quote_draft_id).single(),
+      supabase.from('leads').select('*').eq('id', lead_id).eq('site_id', getSiteId()).single(),
+      supabase.from('quote_drafts').select('*').eq('id', quote_draft_id).eq('site_id', getSiteId()).single(),
     ]);
 
     if (leadResult.error || !leadResult.data) {
@@ -96,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     // Generate sequential invoice number
     const { data: seqData, error: seqError } = await supabase
-      .rpc('next_invoice_number' as never);
+      .rpc('next_invoice_number' as never, { p_site_id: getSiteId() } as never);
 
     if (seqError) {
       console.error('Error generating invoice number:', seqError);
@@ -117,11 +119,11 @@ export async function POST(request: NextRequest) {
     const total = Number(quote.total) || subtotalWithContingency + hstAmount;
     const depositRequired = total * (DEPOSIT_PERCENT / 100);
 
-    const invoiceData: InvoiceInsert = {
+    const invoiceData = {
       invoice_number: invoiceNumber,
       lead_id,
       quote_draft_id,
-      status: 'draft',
+      status: 'draft' as const,
       line_items: quote.line_items as Json,
       subtotal,
       contingency_percent: contingencyPercent,
@@ -143,7 +145,7 @@ export async function POST(request: NextRequest) {
 
     const { data: invoice, error: insertError } = await supabase
       .from('invoices')
-      .insert(invoiceData)
+      .insert(withSiteId(invoiceData))
       .select('*')
       .single();
 
@@ -159,10 +161,11 @@ export async function POST(request: NextRequest) {
     await supabase
       .from('leads')
       .update({ status: 'won', updated_at: new Date().toISOString() })
-      .eq('id', lead_id);
+      .eq('id', lead_id)
+      .eq('site_id', getSiteId());
 
     // Audit log
-    await supabase.from('audit_log').insert({
+    await supabase.from('audit_log').insert(withSiteId({
       lead_id,
       action: 'invoice_created',
       new_values: {
@@ -170,7 +173,7 @@ export async function POST(request: NextRequest) {
         invoice_number: invoiceNumber,
         total,
       } as unknown as Json,
-    });
+    }));
 
     return NextResponse.json({ success: true, data: invoice });
   } catch (error) {

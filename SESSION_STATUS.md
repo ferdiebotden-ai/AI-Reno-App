@@ -1,8 +1,8 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 9, 2026 (ElevenLabs Voice Migration + Conversational UX)
+> **Last Updated:** February 9, 2026 (Multi-Tenancy Consolidation — Single Supabase DB)
 > **Status:** LAUNCHED - Production Ready & Deployed
-> **Current Phase:** Phase 9: Voice Experience Upgrade (COMPLETE) — ElevenLabs migration, unified voice+text UX
+> **Current Phase:** Phase 10: Multi-Tenancy Consolidation (COMPLETE) — Single DB with site_id isolation
 
 ## North Star (Don't Forget)
 We're building an AI-native lead-to-quote platform for renovation contractors. Users chat with AI to describe their project, upload photos for instant visualization, and get ballpark estimates in minutes instead of days. First client: Red White Reno (Stratford, ON).
@@ -13,8 +13,8 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 
 | Metric | Status |
 |--------|--------|
-| Current Phase | Phase 9: Voice Experience Upgrade (COMPLETE) — ElevenLabs migration, infrastructure setup, bug fixes |
-| Next Task ID | N/A - All Tasks Complete (DEV-001 through DEV-106 + CAD + Personas + Voice Migration) |
+| Current Phase | Phase 10: Multi-Tenancy Consolidation (COMPLETE) — Single DB with site_id isolation |
+| Next Task ID | N/A - All Tasks Complete (DEV-001 through DEV-106 + CAD + Personas + Voice + Multi-Tenancy) |
 | Blockers | None |
 | Build Status | Passing |
 | Unit Tests | 230/230 passing (55 core + 84 visualizer + 91 invoice/drawing) |
@@ -139,6 +139,50 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: February 9, 2026 (Multi-Tenancy Consolidation — Single Supabase DB)
+**Completed:**
+- Consolidated two identical Supabase databases into one with `site_id`-based data isolation
+- Created `src/lib/db/site.ts` helper utility (`getSiteId()` + `withSiteId()`)
+- Created migration `20260210000000_add_site_id_multi_tenancy.sql` (12 tables, 4 constraint updates, 12 indexes, 5 functions, 2 views, 20 seed rows)
+- Updated `src/types/database.ts` with `site_id: string` on all 12 table types
+- Updated ~35 files: 22 API routes, 6 admin pages, 2 components with site_id filtering
+- Applied migration to branded Supabase (`bwvrtypzcvuojfsyiwch`)
+- Re-pointed demo Vercel app Supabase env vars to branded project
+- Added `NEXT_PUBLIC_SITE_ID` env var to both Vercel apps (redwhitereno / demo)
+- Deployed and verified both apps — data isolation confirmed
+- AI-Reno-Demo Supabase project (`ktpfyangnmpwufghgasx`) paused (slot freed)
+
+**Files Created (2):**
+- `src/lib/db/site.ts` — Multi-tenancy helper (getSiteId, withSiteId)
+- `supabase/migrations/20260210000000_add_site_id_multi_tenancy.sql` — Full site_id migration
+
+**Files Modified (~35):**
+- `src/types/database.ts` — site_id on all 12 table Row/Insert/Update types
+- 22 API route files — added `.eq('site_id', getSiteId())` to reads, `withSiteId()` to inserts
+- 6 admin pages — added site_id filtering to dashboard, leads, quotes, invoices, drawings
+- `src/components/admin/invoice-metrics-widget.tsx` — site_id filter
+- `src/app/visualizer/share/[token]/page.tsx` — site_id filter
+
+**Key Fixes:**
+- Removed explicit `*Insert` type annotations on insert data (withSiteId adds site_id later)
+- Added `as const` / `as LeadStatus` casts for enum literal types
+- Made migration idempotent (IF NOT EXISTS, DO $ BEGIN...EXCEPTION)
+- Used `DROP VIEW IF EXISTS` + `CREATE VIEW` (PostgreSQL can't add columns with REPLACE)
+- Fixed Vercel env var trailing `\n` — use `printf` not `echo` when piping to CLI
+
+**Decisions Made:**
+- App-level filtering (not RLS-only) because service role client bypasses RLS
+- Single Supabase DB for both branded + demo apps, isolated by `site_id`
+
+**Blockers:** None
+
+**Next Session:**
+1. Add RESEND_API_KEY for email functionality
+2. Write E2E tests for CAD editor and invoice flows
+3. Set up monitoring (UptimeRobot, Sentry)
+
+---
 
 ### Session: February 9, 2026 (ElevenLabs Voice Migration + Conversational UX)
 **Completed:**
@@ -812,6 +856,7 @@ SELECT set_admin_role('email@example.com');
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-09 | Multi-Tenancy Consolidation | Single Supabase DB with site_id isolation, 35+ files updated, migration applied, both Vercel apps deployed and verified, demo Supabase paused |
 | 2026-02-09 | AI Agent Personas & Smart Chat Widget | 3 named AI personas (Emma/Marcus/Mia), floating chat widget with FAB + teaser + voice, knowledge base architecture, persona-based voice prompts, PRD v5.0 update (brand-agnostic) |
 | 2026-02-07 | Drawings UX Polish | Red Open button, Delete toolbar button, drawing name in export dialog, professional filenames (A-P-01 prefix + date stamps), deployed to Vercel |
 | 2026-02-07 | CAD Editor Phase 3 | Permit-ready drawing tool: dimensions, room labels, text annotations, PDF export with title block, layers panel, properties panel, autosave, camera persistence (14 new files, 12 modified) |
