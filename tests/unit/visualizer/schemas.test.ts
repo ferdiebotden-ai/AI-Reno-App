@@ -149,6 +149,12 @@ describe('Visualization Schemas', () => {
         currentStyle: null,
         estimatedDimensions: null,
         potentialFocalPoints: null,
+        wallCount: null,
+        wallDimensions: null,
+        estimatedCeilingHeight: null,
+        spatialZones: null,
+        openings: null,
+        architecturalLines: null,
       };
       expect(() => VisualizationRoomAnalysisSchema.parse(validAnalysis)).not.toThrow();
     });
@@ -167,8 +173,116 @@ describe('Visualization Schemas', () => {
         currentStyle: 'traditional',
         estimatedDimensions: '12x14 feet',
         potentialFocalPoints: ['island', 'bay window'],
+        wallCount: null,
+        wallDimensions: null,
+        estimatedCeilingHeight: null,
+        spatialZones: null,
+        openings: null,
+        architecturalLines: null,
       };
       expect(() => VisualizationRoomAnalysisSchema.parse(withOptionals)).not.toThrow();
+    });
+
+    it('validates spatial analysis fields when populated', () => {
+      const withSpatialData = {
+        roomType: 'kitchen',
+        currentCondition: 'good',
+        structuralElements: ['wall'],
+        identifiedFixtures: ['sink'],
+        layoutType: 'L-shaped',
+        lightingConditions: 'bright',
+        perspectiveNotes: 'front view',
+        preservationConstraints: [],
+        confidenceScore: 0.9,
+        currentStyle: null,
+        estimatedDimensions: null,
+        potentialFocalPoints: null,
+        wallCount: 3,
+        wallDimensions: [
+          { wall: 'left wall', estimatedLength: '12 feet', hasWindow: true, hasDoor: false },
+          { wall: 'back wall', estimatedLength: '14 feet', hasWindow: false, hasDoor: true },
+        ],
+        estimatedCeilingHeight: '~9 feet',
+        spatialZones: [
+          { name: 'cooking zone', description: 'range and prep area', approximateLocation: 'left third' },
+        ],
+        openings: [
+          { type: 'window' as const, wall: 'left wall', approximateSize: '36x48 inches', approximatePosition: 'centered' },
+          { type: 'door' as const, wall: 'back wall', approximateSize: '32 inch standard', approximatePosition: 'right side' },
+        ],
+        architecturalLines: {
+          dominantDirection: 'strong horizontal lines from countertops',
+          vanishingPointDescription: 'single vanishing point centered',
+          symmetryAxis: null,
+        },
+      };
+      expect(() => VisualizationRoomAnalysisSchema.parse(withSpatialData)).not.toThrow();
+    });
+
+    it('validates wallCount range (0-6)', () => {
+      const base = {
+        roomType: 'kitchen',
+        currentCondition: 'good',
+        structuralElements: [],
+        identifiedFixtures: [],
+        layoutType: 'open',
+        lightingConditions: 'bright',
+        perspectiveNotes: 'front view',
+        preservationConstraints: [],
+        confidenceScore: 0.8,
+        currentStyle: null,
+        estimatedDimensions: null,
+        potentialFocalPoints: null,
+        wallDimensions: null,
+        estimatedCeilingHeight: null,
+        spatialZones: null,
+        openings: null,
+        architecturalLines: null,
+      };
+
+      expect(() => VisualizationRoomAnalysisSchema.parse({ ...base, wallCount: 0 })).not.toThrow();
+      expect(() => VisualizationRoomAnalysisSchema.parse({ ...base, wallCount: 6 })).not.toThrow();
+      expect(() => VisualizationRoomAnalysisSchema.parse({ ...base, wallCount: 7 })).toThrow();
+      expect(() => VisualizationRoomAnalysisSchema.parse({ ...base, wallCount: -1 })).toThrow();
+    });
+
+    it('validates opening type enum', () => {
+      const base = {
+        roomType: 'kitchen',
+        currentCondition: 'good',
+        structuralElements: [],
+        identifiedFixtures: [],
+        layoutType: 'open',
+        lightingConditions: 'bright',
+        perspectiveNotes: 'front view',
+        preservationConstraints: [],
+        confidenceScore: 0.8,
+        currentStyle: null,
+        estimatedDimensions: null,
+        potentialFocalPoints: null,
+        wallCount: null,
+        wallDimensions: null,
+        estimatedCeilingHeight: null,
+        spatialZones: null,
+        architecturalLines: null,
+      };
+
+      // Valid types
+      expect(() => VisualizationRoomAnalysisSchema.parse({
+        ...base,
+        openings: [{ type: 'window', wall: 'left', approximateSize: '36x48', approximatePosition: 'center' }],
+      })).not.toThrow();
+
+      expect(() => VisualizationRoomAnalysisSchema.parse({
+        ...base,
+        openings: [{ type: 'archway', wall: 'right', approximateSize: '48x80', approximatePosition: 'center' }],
+      })).not.toThrow();
+
+      // Invalid type
+      expect(() => VisualizationRoomAnalysisSchema.parse({
+        ...base,
+        openings: [{ type: 'skylight', wall: 'ceiling', approximateSize: '24x24', approximatePosition: 'center' }],
+      })).toThrow();
     });
 
     it('requires confidence between 0 and 1', () => {
@@ -185,6 +299,12 @@ describe('Visualization Schemas', () => {
         currentStyle: null,
         estimatedDimensions: null,
         potentialFocalPoints: null,
+        wallCount: null,
+        wallDimensions: null,
+        estimatedCeilingHeight: null,
+        spatialZones: null,
+        openings: null,
+        architecturalLines: null,
       };
       expect(() => VisualizationRoomAnalysisSchema.parse(invalid)).toThrow();
 
@@ -205,6 +325,12 @@ describe('Visualization Schemas', () => {
         currentStyle: null,
         estimatedDimensions: null,
         potentialFocalPoints: null,
+        wallCount: null,
+        wallDimensions: null,
+        estimatedCeilingHeight: null,
+        spatialZones: null,
+        openings: null,
+        architecturalLines: null,
       };
 
       ['excellent', 'good', 'dated', 'needs_renovation'].forEach(condition => {

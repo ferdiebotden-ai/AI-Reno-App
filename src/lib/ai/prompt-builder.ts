@@ -27,6 +27,12 @@ export interface RenovationPromptData {
     constraintsToPreserve: string[];
     materialPreferences?: string[];
   };
+  /** Whether a depth map is included in reference images (Phase 2) */
+  hasDepthMap?: boolean;
+  /** Whether an edge map is included in reference images (Phase 2) */
+  hasEdgeMap?: boolean;
+  /** Depth range from depth estimation (Phase 2) */
+  depthRange?: { min: number; max: number };
 }
 
 /**
@@ -224,7 +230,55 @@ ${photoAnalysis.preservationConstraints.map(c => `- ${c}`).join('\n')}`;
   structuralSection += `\n\nRoom-Specific Preservation Priority:
 ${roomDetails.preservationPriority.map(p => `- ${p}`).join('\n')}`;
 
+  // Add spatial analysis data when available
+  if (photoAnalysis) {
+    if (photoAnalysis.wallCount != null && photoAnalysis.wallDimensions?.length) {
+      structuralSection += `\n\nWall Dimensions (${photoAnalysis.wallCount} walls visible):
+${photoAnalysis.wallDimensions.map(w => `- ${w.wall}: ~${w.estimatedLength}${w.hasWindow ? ' [has window]' : ''}${w.hasDoor ? ' [has door]' : ''}`).join('\n')}`;
+    }
+
+    if (photoAnalysis.openings?.length) {
+      structuralSection += `\n\nDoor/Window Positions:
+${photoAnalysis.openings.map(o => `- ${o.type} on ${o.wall}: ${o.approximateSize}, ${o.approximatePosition}`).join('\n')}`;
+    }
+
+    if (photoAnalysis.spatialZones?.length) {
+      structuralSection += `\n\nSpatial Zone Arrangement:
+${photoAnalysis.spatialZones.map(z => `- ${z.name} (${z.approximateLocation}): ${z.description}`).join('\n')}`;
+    }
+
+    if (photoAnalysis.architecturalLines) {
+      const lines = photoAnalysis.architecturalLines;
+      structuralSection += `\n\nArchitectural Line Guidance:
+- Dominant lines: ${lines.dominantDirection}
+- Vanishing point: ${lines.vanishingPointDescription}`;
+      if (lines.symmetryAxis) {
+        structuralSection += `\n- Symmetry axis: ${lines.symmetryAxis}`;
+      }
+    }
+
+    if (photoAnalysis.estimatedCeilingHeight) {
+      structuralSection += `\n- Ceiling height: ${photoAnalysis.estimatedCeilingHeight}`;
+    }
+  }
+
   promptParts.push(structuralSection);
+
+  // PART 2.5: Structural Conditioning (when depth/edge maps are provided)
+  if (data.hasDepthMap || data.hasEdgeMap) {
+    let conditioningSection = `=== STRUCTURAL CONDITIONING ===`;
+    if (data.hasDepthMap) {
+      conditioningSection += `\nDEPTH MAP: Lighter areas = closer to camera, darker areas = farther away. Preserve these depth relationships exactly in the generated image.`;
+      if (data.depthRange) {
+        conditioningSection += ` Depth range: ${data.depthRange.min.toFixed(1)}m to ${data.depthRange.max.toFixed(1)}m.`;
+      }
+    }
+    if (data.hasEdgeMap) {
+      conditioningSection += `\nEDGE MAP: Lines represent architectural features (walls, counters, windows, doors). ALL major edges must appear in the same positions in the output.`;
+    }
+    conditioningSection += `\nCRITICAL: The structural conditioning maps take precedence over text descriptions for spatial accuracy.`;
+    promptParts.push(conditioningSection);
+  }
 
   // PART 3: Material & Finish Specifications
   let materialsSection = `=== MATERIAL & FINISH SPECIFICATIONS ===

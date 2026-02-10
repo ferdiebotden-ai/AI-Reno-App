@@ -65,6 +65,72 @@ describe('Prompt Builder', () => {
       expect(prompt).toContain('plumbing locations');
     });
 
+    it('includes spatial analysis data in prompt', () => {
+      const photoAnalysis: Partial<RoomAnalysis> = {
+        layoutType: 'L-shaped',
+        lightingConditions: 'bright natural light',
+        perspectiveNotes: 'front view',
+        structuralElements: ['wall'],
+        preservationConstraints: [],
+        wallCount: 3,
+        wallDimensions: [
+          { wall: 'left wall', estimatedLength: '12 feet', hasWindow: true, hasDoor: false },
+          { wall: 'back wall', estimatedLength: '14 feet', hasWindow: false, hasDoor: true },
+        ],
+        openings: [
+          { type: 'window' as const, wall: 'left wall', approximateSize: '36x48 inches', approximatePosition: 'centered' },
+        ],
+        spatialZones: [
+          { name: 'cooking zone', description: 'range and prep', approximateLocation: 'left third' },
+        ],
+        architecturalLines: {
+          dominantDirection: 'strong horizontal lines',
+          vanishingPointDescription: 'centered single point',
+          symmetryAxis: null,
+        },
+        estimatedCeilingHeight: '~9 feet',
+      };
+
+      const prompt = buildRenovationPrompt({
+        roomType: 'kitchen',
+        style: 'modern',
+        variationIndex: 0,
+        photoAnalysis: photoAnalysis as RoomAnalysis,
+      });
+
+      expect(prompt).toContain('3 walls visible');
+      expect(prompt).toContain('left wall');
+      expect(prompt).toContain('[has window]');
+      expect(prompt).toContain('window on left wall');
+      expect(prompt).toContain('cooking zone');
+      expect(prompt).toContain('strong horizontal lines');
+      expect(prompt).toContain('~9 feet');
+    });
+
+    it('includes structural conditioning when depth/edge maps provided', () => {
+      const prompt = buildRenovationPrompt({
+        roomType: 'kitchen',
+        style: 'modern',
+        hasDepthMap: true,
+        hasEdgeMap: true,
+        depthRange: { min: 0.5, max: 6.2 },
+      });
+
+      expect(prompt).toContain('STRUCTURAL CONDITIONING');
+      expect(prompt).toContain('DEPTH MAP');
+      expect(prompt).toContain('EDGE MAP');
+      expect(prompt).toContain('0.5m to 6.2m');
+    });
+
+    it('omits structural conditioning when no depth/edge maps', () => {
+      const prompt = buildRenovationPrompt({
+        roomType: 'kitchen',
+        style: 'modern',
+      });
+
+      expect(prompt).not.toContain('STRUCTURAL CONDITIONING');
+    });
+
     it('includes design intent when provided', () => {
       const prompt = buildRenovationPrompt({
         roomType: 'kitchen',

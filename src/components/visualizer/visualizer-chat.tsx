@@ -3,9 +3,12 @@
 /**
  * Visualizer Chat Component
  * Conversational design intent gathering for enhanced AI visualizations
+ * Uses useChat hook (same pattern as receptionist-chat.tsx)
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useChat, type UIMessage } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,20 +20,25 @@ import {
   ArrowLeft,
   CheckCircle,
   Lightbulb,
+  ScanSearch,
+  Blocks,
+  Sun,
+  Package,
+  CircleCheck,
 } from 'lucide-react';
 import { VoiceProvider } from '@/components/voice/voice-provider';
 import { TalkButton } from '@/components/voice/talk-button';
 import { VoiceIndicator } from '@/components/voice/voice-indicator';
 import { VoiceTranscriptMessage } from '@/components/voice/voice-transcript-message';
 import { useVoice } from '@/components/voice/voice-provider';
-import type { VoiceTranscriptEntry } from '@/lib/voice/config';
 import type { DesignStyle, RoomType } from '@/lib/schemas/visualization';
 import type { RoomAnalysis } from '@/lib/ai/photo-analyzer';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
+function getMessageContent(message: UIMessage): string {
+  return message.parts
+    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+    .map(part => part.text)
+    .join('');
 }
 
 interface ExtractedData {
@@ -73,9 +81,6 @@ function VisualizerChatInner({
   onBack,
   className,
 }: VisualizerChatProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [photoAnalysis, setPhotoAnalysis] = useState<RoomAnalysis | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedData>({
@@ -85,8 +90,37 @@ function VisualizerChatInner({
     confidenceScore: 0,
   });
   const [isReady, setIsReady] = useState(false);
+  const [conversationContext, setConversationContext] = useState<Record<string, unknown> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Initial greeting (will be replaced once photo analysis completes)
+  const [initialGreeting, setInitialGreeting] = useState<string | null>(null);
+
+  // useChat transport for streaming — recreated when context changes
+  const transport = useMemo(() => {
+    const opts: { api: string; body?: object } = { api: '/api/ai/visualizer-chat' };
+    if (conversationContext) {
+      opts.body = { data: { context: conversationContext } };
+    }
+    return new DefaultChatTransport(opts);
+  }, [conversationContext]);
+
+  const initialMessages = useMemo<UIMessage[]>(() => {
+    if (!initialGreeting) return [];
+    return [{
+      id: 'mia-greeting',
+      role: 'assistant' as const,
+      parts: [{ type: 'text' as const, text: initialGreeting }],
+    }];
+  }, [initialGreeting]);
+
+  const { messages, sendMessage, status: chatStatus } = useChat({
+    transport,
+    messages: initialMessages,
+  });
+
+  const isLoading = chatStatus === 'streaming' || chatStatus === 'submitted';
 
   // Initialize conversation with photo analysis
   useEffect(() => {
@@ -117,26 +151,19 @@ function VisualizerChatInner({
           }));
         }
 
-        if (data.message) {
-          setMessages([
-            {
-              id: `assistant-${Date.now()}`,
-              role: 'assistant',
-              content: data.message,
-            },
-          ]);
+        if (data.context) {
+          setConversationContext(data.context);
         }
+
+        setInitialGreeting(
+          data.message ||
+          "I've received your photo! What kind of changes would you like to see in this space?"
+        );
       } catch (error) {
         console.error('Photo analysis failed:', error);
-        // Add fallback message
-        setMessages([
-          {
-            id: `assistant-${Date.now()}`,
-            role: 'assistant',
-            content:
-              "I've received your photo! What kind of changes would you like to see in this space? Tell me about your dream renovation - the style you love, specific materials you want, or anything you'd like to keep or change.",
-          },
-        ]);
+        setInitialGreeting(
+          "I've received your photo! What kind of changes would you like to see in this space? Tell me about your dream renovation - the style you love, specific materials you want, or anything you'd like to keep or change."
+        );
       } finally {
         setIsAnalyzing(false);
       }
@@ -171,148 +198,75 @@ function VisualizerChatInner({
     setIsReady(hasStyle && (hasChanges || hasEnoughTurns));
   }, [extractedData, messages]);
 
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isLoading) return;
+  // Extract design intent from assistant messages
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== 'user') return;
 
-    const userMessage = input.trim();
-    setInput('');
+    const content = getMessageContent(lastMsg).toLowerCase();
 
-    // Add user message
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: userMessage,
+    // Extract style from user messages
+    const styles: Record<string, DesignStyle> = {
+      modern: 'modern',
+      traditional: 'traditional',
+      farmhouse: 'farmhouse',
+      industrial: 'industrial',
+      minimalist: 'minimalist',
+      contemporary: 'contemporary',
     };
-    setMessages((prev) => [...prev, userMsg]);
-    setIsLoading(true);
-
-    try {
-      // Build context for API
-      const context = {
-        state: 'intent_gathering',
-        extractedData,
-        conversationHistory: messages.map((m) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          timestamp: new Date().toISOString(),
-        })),
-        turnCount: messages.filter((m) => m.role === 'user').length,
-        photoAnalysis,
-      };
-
-      const response = await fetch('/api/ai/visualizer-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessage,
-          context,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Chat failed');
-
-      // Parse streamed response
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response body');
-
-      let assistantContent = '';
-      const assistantMsg: Message = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: '',
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = new TextDecoder().decode(value);
-        // Parse SSE data chunks
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('0:')) {
-            // Text chunk format: 0:"text content"
-            const textMatch = line.match(/^0:"(.*)"/);
-            if (textMatch?.[1]) {
-              assistantContent += textMatch[1]
-                .replace(/\\n/g, '\n')
-                .replace(/\\"/g, '"');
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsg.id
-                    ? { ...m, content: assistantContent }
-                    : m
-                )
-              );
-            }
-          }
-        }
+    for (const [keyword, style] of Object.entries(styles)) {
+      if (content.includes(keyword)) {
+        setExtractedData((prev) => ({
+          ...prev,
+          stylePreference: prev.stylePreference || style,
+        }));
+        break;
       }
-
-      // Parse context from headers
-      const contextHeader = response.headers.get('X-Conversation-Context');
-      if (contextHeader) {
-        try {
-          const newContext = JSON.parse(decodeURIComponent(contextHeader));
-          if (newContext.extractedData) {
-            setExtractedData((prev) => ({
-              ...prev,
-              ...newContext.extractedData,
-              // Merge arrays instead of replacing
-              desiredChanges: [
-                ...new Set([
-                  ...prev.desiredChanges,
-                  ...(newContext.extractedData.desiredChanges || []),
-                ]),
-              ],
-              constraintsToPreserve: [
-                ...new Set([
-                  ...prev.constraintsToPreserve,
-                  ...(newContext.extractedData.constraintsToPreserve || []),
-                ]),
-              ],
-              materialPreferences: [
-                ...new Set([
-                  ...prev.materialPreferences,
-                  ...(newContext.extractedData.materialPreferences || []),
-                ]),
-              ],
-            }));
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      }
-
-      // Check readiness header
-      const readyHeader = response.headers.get('X-Generation-Ready');
-      if (readyHeader === 'true') {
-        setIsReady(true);
-      }
-    } catch (error) {
-      console.error('Chat error:', error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          role: 'assistant',
-          content:
-            "I'm having trouble right now. Could you tell me more about what style you're looking for? (modern, traditional, farmhouse, industrial, minimalist, or contemporary)",
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
     }
-  }, [input, isLoading, messages, extractedData, photoAnalysis]);
+
+    // Extract materials
+    const materials = ['marble', 'granite', 'quartz', 'wood', 'tile', 'brass', 'stainless steel', 'subway tile'];
+    for (const mat of materials) {
+      if (content.includes(mat)) {
+        setExtractedData((prev) => ({
+          ...prev,
+          materialPreferences: [...new Set([...prev.materialPreferences, mat])],
+        }));
+      }
+    }
+
+    // Extract desired changes (simple heuristic)
+    const changePatterns = [
+      /(?:want|like|love)\s+(?:to\s+)?(?:have\s+)?(?:new\s+)?(.+?)(?:\.|,|$)/gi,
+      /(?:update|replace|change|add)\s+(?:the\s+)?(.+?)(?:\.|,|$)/gi,
+    ];
+    for (const pattern of changePatterns) {
+      const matches = content.matchAll(pattern);
+      for (const match of matches) {
+        const change = match[1]?.trim();
+        if (change && change.length > 3 && change.length < 100) {
+          setExtractedData((prev) => ({
+            ...prev,
+            desiredChanges: [...new Set([...prev.desiredChanges, change])],
+          }));
+        }
+      }
+    }
+  }, [messages]);
+
+  const [inputValue, setInputValue] = useState('');
+
+  const handleSend = useCallback(async () => {
+    if (!inputValue.trim() || isLoading || isAnalyzing) return;
+    const text = inputValue.trim();
+    setInputValue('');
+    await sendMessage({ text });
+  }, [inputValue, isLoading, isAnalyzing, sendMessage]);
 
   const handleGenerate = () => {
-    // Determine best style
     const style: DesignStyle = extractedData.stylePreference || 'modern';
     const roomType: RoomType = extractedData.roomType || photoAnalysis?.roomType as RoomType || 'kitchen';
 
-    // Build constraints text from extracted data
     const constraintParts: string[] = [];
     if (extractedData.desiredChanges.length > 0) {
       constraintParts.push(`Changes: ${extractedData.desiredChanges.join(', ')}`);
@@ -324,7 +278,6 @@ function VisualizerChatInner({
       constraintParts.push(`Materials: ${extractedData.materialPreferences.join(', ')}`);
     }
 
-    // Build config with proper handling for exactOptionalPropertyTypes
     const generateConfig: Parameters<typeof onGenerate>[0] = {
       roomType,
       style,
@@ -336,7 +289,6 @@ function VisualizerChatInner({
         }),
       },
     };
-    // Only add optional properties if they have values
     if (constraintParts.length > 0) {
       generateConfig.constraints = constraintParts.join('. ');
     }
@@ -389,9 +341,9 @@ function VisualizerChatInner({
         )}
       </div>
 
-      {/* Photo thumbnail */}
-      <div className="p-3 bg-muted/50 border-b border-border">
-        <div className="flex items-center gap-3">
+      {/* Photo thumbnail + analysis feedback */}
+      <div className="bg-muted/50 border-b border-border">
+        <div className="flex items-center gap-3 p-3">
           <div className="w-16 h-12 rounded overflow-hidden flex-shrink-0">
             <img
               src={imageBase64}
@@ -409,6 +361,14 @@ function VisualizerChatInner({
                 <span className="text-muted-foreground capitalize">
                   {photoAnalysis.layoutType}
                 </span>
+                {photoAnalysis.estimatedCeilingHeight && (
+                  <>
+                    <span className="text-muted-foreground"> • </span>
+                    <span className="text-muted-foreground text-xs">
+                      {photoAnalysis.estimatedCeilingHeight}
+                    </span>
+                  </>
+                )}
               </div>
             ) : isAnalyzing ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -420,6 +380,11 @@ function VisualizerChatInner({
             )}
           </div>
         </div>
+
+        {/* Phased analysis feedback */}
+        {(isAnalyzing || photoAnalysis) && (
+          <AnalysisFeedback isAnalyzing={isAnalyzing} photoAnalysis={photoAnalysis} />
+        )}
       </div>
 
       {/* Extracted data summary */}
@@ -468,7 +433,7 @@ function VisualizerChatInner({
                     : 'bg-muted'
                 )}
               >
-                {message.content}
+                {getMessageContent(message)}
               </div>
             </div>
           ))}
@@ -503,7 +468,7 @@ function VisualizerChatInner({
                       ...prev,
                       stylePreference: option.value,
                     }));
-                    setInput(`I'd like a ${option.label.toLowerCase()} style`);
+                    setInputValue(`I'd like a ${option.label.toLowerCase()} style`);
                   }}
                 >
                   {option.label}
@@ -521,8 +486,8 @@ function VisualizerChatInner({
         <div className="flex gap-2">
           <Input
             ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Tell Mia about your dream space..."
             disabled={isLoading || isAnalyzing}
@@ -535,7 +500,7 @@ function VisualizerChatInner({
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading || isAnalyzing}
+            disabled={!inputValue.trim() || isLoading || isAnalyzing}
             size="icon"
           >
             <Send className="w-4 h-4" />
@@ -572,6 +537,114 @@ function VisualizerChatInner({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Analysis Feedback Component
+ * Animated phased analysis display showing what the AI detected
+ */
+interface AnalysisPhase {
+  icon: React.ReactNode;
+  label: string;
+  detail: string | null;
+  complete: boolean;
+}
+
+function AnalysisFeedback({
+  isAnalyzing,
+  photoAnalysis,
+}: {
+  isAnalyzing: boolean;
+  photoAnalysis: RoomAnalysis | null;
+}) {
+  const [visiblePhases, setVisiblePhases] = useState(0);
+
+  useEffect(() => {
+    if (!isAnalyzing && !photoAnalysis) return undefined;
+
+    // Animate phases appearing one by one during analysis
+    if (isAnalyzing) {
+      const timers: ReturnType<typeof setTimeout>[] = [];
+      for (let i = 1; i <= 5; i++) {
+        timers.push(setTimeout(() => setVisiblePhases(i), i * 600));
+      }
+      return () => timers.forEach(clearTimeout);
+    }
+
+    // Once analysis is done, show all phases immediately
+    if (photoAnalysis) {
+      setVisiblePhases(5);
+    }
+    return undefined;
+  }, [isAnalyzing, photoAnalysis]);
+
+  if (!isAnalyzing && !photoAnalysis) return null;
+
+  const phases: AnalysisPhase[] = [
+    {
+      icon: <ScanSearch className="w-3.5 h-3.5" />,
+      label: 'Detecting room type',
+      detail: photoAnalysis
+        ? `${photoAnalysis.roomType.replace('_', ' ')} detected (${photoAnalysis.layoutType} layout)`
+        : null,
+      complete: !!photoAnalysis,
+    },
+    {
+      icon: <Blocks className="w-3.5 h-3.5" />,
+      label: 'Mapping structural elements',
+      detail: photoAnalysis
+        ? `${photoAnalysis.wallCount ?? photoAnalysis.structuralElements.length} walls mapped, ${photoAnalysis.openings?.filter(o => o.type === 'window').length ?? 0} windows, ${photoAnalysis.openings?.filter(o => o.type === 'door').length ?? 0} doors`
+        : null,
+      complete: !!photoAnalysis,
+    },
+    {
+      icon: <Sun className="w-3.5 h-3.5" />,
+      label: 'Analyzing lighting conditions',
+      detail: photoAnalysis?.lightingConditions
+        ? photoAnalysis.lightingConditions.slice(0, 60) + (photoAnalysis.lightingConditions.length > 60 ? '...' : '')
+        : null,
+      complete: !!photoAnalysis,
+    },
+    {
+      icon: <Package className="w-3.5 h-3.5" />,
+      label: 'Identifying fixtures',
+      detail: photoAnalysis?.identifiedFixtures?.length
+        ? photoAnalysis.identifiedFixtures.slice(0, 4).join(', ')
+        : null,
+      complete: !!photoAnalysis,
+    },
+    {
+      icon: <CircleCheck className="w-3.5 h-3.5" />,
+      label: 'Ready for design consultation',
+      detail: null,
+      complete: !!photoAnalysis,
+    },
+  ];
+
+  return (
+    <div className="px-3 py-2 space-y-1.5">
+      {phases.slice(0, visiblePhases).map((phase, i) => (
+        <div
+          key={i}
+          className={cn(
+            'flex items-center gap-2 text-xs transition-all duration-300',
+            phase.complete ? 'text-green-600' : 'text-muted-foreground'
+          )}
+        >
+          {phase.complete ? (
+            <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+          ) : i === visiblePhases - 1 && isAnalyzing ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+          ) : (
+            <span className="flex-shrink-0">{phase.icon}</span>
+          )}
+          <span className={cn(phase.complete && 'font-medium')}>
+            {phase.detail || phase.label}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
