@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server';
 import type { PersonaKey } from '@/lib/ai/personas/types';
 
-const ELEVENLABS_API_KEY = process.env['ELEVENLABS_API_KEY'];
+const ELEVENLABS_API_KEY = process.env['ELEVENLABS_API_KEY']?.trim();
 
 const VALID_PERSONAS: PersonaKey[] = ['receptionist', 'quote-specialist', 'design-consultant'];
 
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     }
 
     const envKey = AGENT_ENV_MAP[personaParam];
-    const agentId = process.env[envKey];
+    const agentId = process.env[envKey]?.trim();
 
     if (!agentId) {
       return NextResponse.json(

@@ -80,6 +80,7 @@ export function VoiceProvider({ children, onMessage }: VoiceProviderProps) {
   const [outputVolume, setOutputVolume] = useState(0);
 
   const durationRef = useRef<NodeJS.Timeout | null>(null);
+  const connectingRef = useRef(false);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
 
@@ -171,6 +172,8 @@ export function VoiceProvider({ children, onMessage }: VoiceProviderProps) {
 
   const startVoice = useCallback(
     async (personaKey: PersonaKey) => {
+      if (connectingRef.current) return;
+
       if (!supported) {
         setError(VOICE_ERROR_MESSAGES.NOT_SUPPORTED);
         return;
@@ -181,6 +184,7 @@ export function VoiceProvider({ children, onMessage }: VoiceProviderProps) {
         return;
       }
 
+      connectingRef.current = true;
       setError(null);
       setTranscript([]);
       setDurationMs(0);
@@ -212,6 +216,8 @@ export function VoiceProvider({ children, onMessage }: VoiceProviderProps) {
             err instanceof Error ? err.message : VOICE_ERROR_MESSAGES.UNKNOWN
           );
         }
+      } finally {
+        connectingRef.current = false;
       }
     },
     [supported, isApiConfigured, conversation]

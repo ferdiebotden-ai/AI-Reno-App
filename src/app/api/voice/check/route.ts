@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const isConfigured = !!process.env['ELEVENLABS_API_KEY'];
+  const isConfigured = !!process.env['ELEVENLABS_API_KEY']?.trim();
 
   if (isConfigured) {
     return NextResponse.json({ configured: true });

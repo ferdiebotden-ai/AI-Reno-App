@@ -32,7 +32,7 @@ export function TalkButton({
   className,
   disabled,
 }: TalkButtonProps) {
-  const { status, startVoice, endVoice } = useVoice();
+  const { status, startVoice, endVoice, error } = useVoice();
   const name = PERSONA_NAMES[persona];
   const isActive = status === 'connected' || status === 'connecting';
 
@@ -46,30 +46,35 @@ export function TalkButton({
 
   if (variant === 'standalone') {
     return (
-      <Button
-        onClick={handleClick}
-        disabled={disabled}
-        size="lg"
-        className={cn(
-          'h-14 px-8 rounded-full text-base font-semibold transition-all',
-          isActive
-            ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
-            : 'bg-[#D32F2F] hover:bg-[#B71C1C] text-white',
-          className
+      <div className="flex flex-col items-center">
+        <Button
+          onClick={handleClick}
+          disabled={disabled}
+          size="lg"
+          className={cn(
+            'h-14 px-8 rounded-full text-base font-semibold transition-all',
+            isActive
+              ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
+              : 'bg-[#D32F2F] hover:bg-[#B71C1C] text-white',
+            className
+          )}
+        >
+          {isActive ? (
+            <>
+              <PhoneOff className="h-5 w-5 mr-2" />
+              End Call
+            </>
+          ) : (
+            <>
+              <Mic className="h-5 w-5 mr-2" />
+              Talk to {name}
+            </>
+          )}
+        </Button>
+        {error && (
+          <p className="text-xs text-destructive mt-1 text-center">{error}</p>
         )}
-      >
-        {isActive ? (
-          <>
-            <PhoneOff className="h-5 w-5 mr-2" />
-            End Call
-          </>
-        ) : (
-          <>
-            <Mic className="h-5 w-5 mr-2" />
-            Talk to {name}
-          </>
-        )}
-      </Button>
+      </div>
     );
   }
 
@@ -85,6 +90,7 @@ export function TalkButton({
         className
       )}
       aria-label={isActive ? 'End voice call' : `Talk to ${name}`}
+      title={error || undefined}
     >
       {isActive ? (
         <>
