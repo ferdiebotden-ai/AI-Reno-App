@@ -14,7 +14,6 @@ import {
   Target,
   TrendingUp,
   MessageSquare,
-  DollarSign,
   Loader2,
   AlertCircle,
 } from 'lucide-react';
@@ -27,8 +26,6 @@ interface VisualizationMetrics {
   quote_conversion_rate: number;
   admin_selection_rate: number;
   conversation_mode_rate: number;
-  total_cost_usd: number;
-  avg_cost_per_visualization: number;
 }
 
 interface VisualizationMetricsWidgetProps {
@@ -100,10 +97,6 @@ export function VisualizationMetricsWidget({
     return `${seconds}s`;
   };
 
-  const formatCurrency = (amount: number): string => {
-    return `$${amount.toFixed(2)}`;
-  };
-
   return (
     <Card className={cn(className)}>
       <CardHeader>
@@ -172,16 +165,6 @@ export function VisualizationMetricsWidget({
             </div>
           </div>
 
-          {/* Total Cost */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <DollarSign className="w-4 h-4" />
-              Total Cost
-            </div>
-            <div className="text-2xl font-bold">
-              {formatCurrency(metrics.total_cost_usd)}
-            </div>
-          </div>
         </div>
 
         {/* Validation Score Bar */}
@@ -209,13 +192,8 @@ export function VisualizationMetricsWidget({
           </div>
         )}
 
-        {/* Cost per visualization */}
         <div className="mt-4 pt-4 border-t border-border text-sm text-muted-foreground">
-          Average cost per visualization:{' '}
-          <span className="font-medium text-foreground">
-            {formatCurrency(metrics.avg_cost_per_visualization)}
-          </span>
-          {' '}| Retry rate:{' '}
+          Retry rate:{' '}
           <span className="font-medium text-foreground">
             {metrics.retry_rate.toFixed(1)}%
           </span>

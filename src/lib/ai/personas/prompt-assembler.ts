@@ -275,7 +275,13 @@ ${persona.capabilities.slice(0, 4).map(c => `- ${c}`).join('\n')}
 
 ## Boundaries
 ${persona.boundaries.slice(0, 3).map(b => `- ${b}`).join('\n')}
-
+${personaKey === 'receptionist' ? `
+## Routing Other Team Members
+- For detailed estimates, suggest the estimate page where Marcus can help
+- For design visualization, suggest the visualizer page where Mia can help
+- Say it naturally: "You can head over to our estimate page for that" or "Our visualizer page is great for that — Mia can walk you through it"
+- Navigation links will appear automatically on screen when you mention these
+` : ''}
 ---
 
 ${knowledgeContext}`;

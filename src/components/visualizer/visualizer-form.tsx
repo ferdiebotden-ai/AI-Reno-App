@@ -72,7 +72,7 @@ function VisualizerFormInner() {
   const preferencesSectionRef = useRef<HTMLDivElement>(null);
 
   // Sync voice transcript from VoiceProvider
-  const { transcript: voiceTranscript } = useVoice();
+  const { transcript: voiceTranscript, endVoice, status: voiceStatus } = useVoice();
   useEffect(() => {
     if (voiceTranscript.length > 0) {
       setFormData(prev => ({ ...prev, voiceTranscript }));
@@ -138,6 +138,11 @@ function VisualizerFormInner() {
   // Build design preferences and generate
   const handleGenerate = useCallback(async () => {
     if (!formData.photo || !formData.roomType || !formData.style) return;
+
+    // End any active voice session — transcript is already captured
+    if (voiceStatus === 'connected' || voiceStatus === 'connecting') {
+      await endVoice();
+    }
 
     setCurrentStep('generating');
     setGenerationProgress(0);
@@ -238,7 +243,7 @@ function VisualizerFormInner() {
       }
       setCurrentStep('error');
     }
-  }, [formData]);
+  }, [formData, endVoice, voiceStatus]);
 
   const handleStartOver = useCallback(() => {
     setFormData({
