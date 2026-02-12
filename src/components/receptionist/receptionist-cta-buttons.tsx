@@ -63,6 +63,22 @@ export function ReceptionistCTAButtons({
 }) {
   const ctas = extractCTAs(text);
 
+  // Fallback: detect natural language routing when no CTA markers found
+  if (ctas.length === 0) {
+    if (/marcus|estimate|cost|price|quote|budget/i.test(text)) {
+      ctas.push({ label: 'Get a Free Estimate', path: '/estimate' });
+    }
+    if (/mia|visualiz|design|transform|see what/i.test(text)) {
+      ctas.push({ label: 'Try the Visualizer', path: '/visualizer' });
+    }
+    if (/contact|reach out|call|phone/i.test(text) && !/callback|call back/i.test(text)) {
+      ctas.push({ label: 'Contact Us', path: '/contact' });
+    }
+    if (/services|what we offer|what we do/i.test(text)) {
+      ctas.push({ label: 'View Services', path: '/services' });
+    }
+  }
+
   if (ctas.length === 0) return null;
 
   return (
