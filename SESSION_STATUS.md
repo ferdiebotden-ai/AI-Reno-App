@@ -1,8 +1,8 @@
 # Session Status - Lead-to-Quote Engine v2
 
-> **Last Updated:** February 11, 2026 (Framer Motion Animation Sprint — scroll reveals, stagger effects, spring physics)
+> **Last Updated:** February 11, 2026 (Visualizer UX Overhaul — streamlined flow, opacity slider, voice integration, rich handoff)
 > **Status:** LAUNCHED - Production Ready & Deployed
-> **Current Phase:** Phase 12: UI Animation Polish (COMPLETE) — Framer Motion scroll reveals, stagger effects, auto-reveal slider, spring widget
+> **Current Phase:** Phase 13: Visualizer UX Overhaul (COMPLETE) — Streamlined single-page form, opacity before/after slider, voice consultation, rich quote handoff
 
 ## North Star (Don't Forget)
 We're building an AI-native lead-to-quote platform for renovation contractors. Users chat with AI to describe their project, upload photos for instant visualization, and get ballpark estimates in minutes instead of days. First client: Red White Reno (Stratford, ON).
@@ -13,12 +13,11 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 
 | Metric | Status |
 |--------|--------|
-| Current Phase | Phase 12: UI Animation Polish (COMPLETE) — Framer Motion scroll reveals + spring physics |
+| Current Phase | Phase 13: Visualizer UX Overhaul (COMPLETE) — Streamlined flow + opacity slider + voice integration |
 | Next Task ID | N/A - All Tasks Complete |
 | Blockers | None |
 | Build Status | Passing |
-| Unit Tests | 236/236 passing (55 core + 90 visualizer + 91 invoice/drawing) |
-| New Dependency | framer-motion (~32KB gzipped) |
+| Unit Tests | 267/267 passing (55 core + 90 visualizer + 91 invoice/drawing + 31 design preferences) |
 | E2E Tests | 268/333 passing, 48 skipped, 17 failed (all pre-existing AI/email API-dependent) |
 | Production URL | https://leadquoteenginev2.vercel.app |
 | Branch | feature/dev-003-shadcn-ui |
@@ -140,6 +139,54 @@ We're building an AI-native lead-to-quote platform for renovation contractors. U
 ---
 
 ## Recent Session Log
+
+### Session: February 11, 2026 (Visualizer UX Overhaul)
+**Completed:**
+- **Phase 1: Data Foundation** — Created `DesignPreferences` Zod schema, extended visualize API for 'other' types + voice data + streamlined mode, extended prompt builder for voice + custom types, enriched handoff context with designPreferences + visualizationData
+- **Phase 2: Streamlined Form** — Added "Other" option to room type and style selectors, created PreferencesSection (text + Mia voice consultation), FloatingGenerateButton, PhotoSummaryBar, complete rewrite of visualizer-form.tsx from multi-step mode-select gate to single-page flow
+- **Phase 3: Opacity Before/After Slider** — Rewrote slider from vertical divider to opacity overlay with animated intro sequence (0→100%→50%), sticky "Get a Quote" CTA on results page
+- **Phase 4: Voice Summary API** — Created /api/ai/summarize-voice endpoint using generateObject with gpt-4o-mini for structured preference extraction
+- **Phase 5: Enhanced Handoff** — Rich context serialization from visualizer → Marcus (designPreferences, visualizationData, voice summary), contextual welcome messages, handoff passed to buildAgentSystemPrompt
+- **Phase 6: Testing** — 31 new unit tests for design preferences schema, merge logic, label helpers; all 267 tests pass
+
+**New Files Created (7):**
+- `src/lib/schemas/design-preferences.ts` — Unified preferences schema with Zod validation
+- `src/components/visualizer/preferences-section.tsx` — Text + Mia voice consultation section
+- `src/components/visualizer/floating-generate-button.tsx` — Sticky generate CTA
+- `src/components/visualizer/photo-summary-bar.tsx` — Compact photo header
+- `src/app/api/ai/summarize-voice/route.ts` — Voice transcript summary API
+- `src/components/chat/handoff-card.tsx` — Handoff UI card
+- `tests/unit/design-preferences.test.ts` — 31 unit tests
+
+**Files Modified (11):**
+- `src/components/visualizer/visualizer-form.tsx` — Major rewrite (794→490 lines, new state machine)
+- `src/components/visualizer/before-after-slider.tsx` — Opacity overlay + intro animation
+- `src/components/visualizer/result-display.tsx` — Sticky CTA bar
+- `src/components/visualizer/room-type-selector.tsx` — "Other" option + text input
+- `src/components/visualizer/style-selector.tsx` — "Other" option + text input
+- `src/app/api/ai/visualize/route.ts` — Extended schema for 'other', voice, streamlined mode
+- `src/lib/ai/prompt-builder.ts` — Voice transcript + custom type handling
+- `src/lib/chat/handoff.ts` — Rich handoff data typing
+- `src/lib/ai/personas/prompt-assembler.ts` — Marcus handoff formatting
+- `src/components/chat/chat-interface.tsx` — Full handoff reading + contextual welcome
+- `src/app/api/ai/chat/route.ts` — Pass handoff to buildAgentSystemPrompt
+
+**Decisions Made:**
+- Removed mode-select gate (conversation vs quick) — single streamlined flow for all users
+- 'other' room/style maps to living_room/contemporary in DB for type safety
+- Voice summary uses gpt-4o-mini for cost efficiency (~$0.01/call)
+- Opacity slider with intro animation respects useReducedMotion()
+- exactOptionalPropertyTypes: added `| undefined` to optional props passed as potentially undefined
+
+**Blockers:** None
+
+**Next Session:**
+1. Deploy to Vercel and test full visualizer flow on production
+2. Manual test on 375px mobile viewport
+3. Add RESEND_API_KEY for email functionality
+4. Write E2E tests for new visualizer flow
+
+---
 
 ### Session: February 11, 2026 (Framer Motion Animation Sprint)
 **Completed:**
@@ -955,6 +1002,7 @@ SELECT set_admin_role('email@example.com');
 
 | Date | Session | Changes |
 |------|---------|---------|
+| 2026-02-11 | Visualizer UX Overhaul | Streamlined single-page form (removed mode-select gate), opacity before/after slider with intro animation, voice consultation with Mia, rich handoff to Marcus, 7 new files, 11 modified, 267 tests passing |
 | 2026-02-11 | UI Animation Sprint | Framer Motion scroll reveals, hero stagger, service/testimonial card stagger, before/after auto-reveal, widget spring physics, gallery filter transitions, prefers-reduced-motion support |
 | 2026-02-10 | Visualizer Intelligence Upgrade | GPT-5.2 vision, enhanced spatial analysis schema, depth estimation (Replicate), edge detection (sharp), multi-image Gemini pipeline, iterative refinement, AnalysisFeedback UX, 236 tests passing |
 | 2026-02-09 | Multi-Tenancy Consolidation | Single Supabase DB with site_id isolation, 35+ files updated, migration applied, both Vercel apps deployed and verified, demo Supabase paused |

@@ -1,6 +1,7 @@
 /**
  * Prompt Assembler
  * Builds layered system prompts for each AI agent persona
+ * Supports dynamic cross-domain knowledge injection
  */
 
 import type { PersonaKey } from './types';
@@ -26,6 +27,94 @@ const PERSONAS = {
   'design-consultant': DESIGN_CONSULTANT_PERSONA,
 } as const;
 
+// ---------------------------------------------------------------------------
+// Knowledge domain detection (keyword-based, no extra AI call)
+// ---------------------------------------------------------------------------
+
+const PRICING_KEYWORDS = [
+  'cost', 'price', 'estimate', 'budget', 'how much', 'afford',
+  'spend', 'expensive', 'cheap', 'quote', 'ballpark', 'range',
+  'per square', 'sqft', 'sq ft', '\\$',
+];
+
+const DESIGN_KEYWORDS = [
+  'style', 'design', 'modern', 'farmhouse', 'traditional', 'industrial',
+  'minimalist', 'contemporary', 'color', 'colour', 'material', 'tile',
+  'countertop', 'cabinet', 'flooring', 'visualize', 'look like',
+  'aesthetic', 'vibe', 'feel',
+];
+
+type KnowledgeDomain = 'pricing' | 'design';
+
+/**
+ * Detect which knowledge domains a user message touches
+ */
+export function detectKnowledgeDomain(message: string): KnowledgeDomain[] {
+  const lower = message.toLowerCase();
+  const domains: KnowledgeDomain[] = [];
+
+  if (PRICING_KEYWORDS.some(kw => lower.includes(kw.replace('\\$', '$')))) {
+    domains.push('pricing');
+  }
+  if (DESIGN_KEYWORDS.some(kw => lower.includes(kw))) {
+    domains.push('design');
+  }
+
+  return domains;
+}
+
+/**
+ * Build a dynamic knowledge supplement based on the user's message
+ * and the current persona. Returns extra prompt text to append, or ''.
+ *
+ * Rules:
+ * - Emma (receptionist) asking about pricing → inject PRICING_SUMMARY
+ * - Emma asking about design → inject short ONTARIO_DESIGN_KNOWLEDGE snippet
+ * - Marcus (quote-specialist) asking about design → inject design snippet
+ * - Mia (design-consultant) asking about pricing → inject PRICING_SUMMARY
+ */
+export function buildDynamicSystemPrompt(
+  personaKey: PersonaKey,
+  userMessage: string,
+): string {
+  const domains = detectKnowledgeDomain(userMessage);
+  if (domains.length === 0) return '';
+
+  const additions: string[] = [];
+
+  for (const domain of domains) {
+    switch (domain) {
+      case 'pricing':
+        // Only inject if persona doesn't already have full pricing
+        if (personaKey === 'receptionist' || personaKey === 'design-consultant') {
+          additions.push(`## Cross-Domain Knowledge: Pricing Context
+When the homeowner asks about costs, you can share these general ranges to be helpful.
+For detailed line-item estimates, suggest they speak with Marcus at /estimate.
+
+${PRICING_SUMMARY}`);
+        }
+        break;
+
+      case 'design':
+        // Only inject if persona doesn't already have design knowledge
+        if (personaKey === 'receptionist' || personaKey === 'quote-specialist') {
+          additions.push(`## Cross-Domain Knowledge: Design Context
+When the homeowner asks about styles or materials, you can share these insights.
+For full design consultation and visualization, suggest Mia at /visualizer.
+
+${ONTARIO_DESIGN_KNOWLEDGE}`);
+        }
+        break;
+    }
+  }
+
+  return additions.join('\n\n');
+}
+
+// ---------------------------------------------------------------------------
+// Core prompt builders
+// ---------------------------------------------------------------------------
+
 /**
  * Build the full system prompt for a text-based AI agent
  *
@@ -34,8 +123,13 @@ const PERSONAS = {
  * 2. Role-specific knowledge
  * 3. Sales training (shared)
  * 4. Persona identity + boundaries + rules
+ *
+ * Optional: pass userMessage to enable dynamic cross-domain injection
  */
-export function buildAgentSystemPrompt(personaKey: PersonaKey): string {
+export function buildAgentSystemPrompt(
+  personaKey: PersonaKey,
+  options?: { userMessage?: string | undefined; estimateData?: Record<string, unknown> | undefined; handoffContext?: Record<string, unknown> | undefined },
+): string {
   const persona = PERSONAS[personaKey];
 
   // Layer 1: Shared company knowledge (scope varies by agent)
@@ -100,7 +194,44 @@ ${Object.values(persona.routingSuggestions).map(s => `- ${s}`).join('\n')}
 
 ${personaRules}`;
 
-  return `${layer4}\n\n---\n\n${layer1}\n\n---\n\n${layer2}\n\n---\n\n${layer3}`;
+  let prompt = `${layer4}\n\n---\n\n${layer1}\n\n---\n\n${layer2}\n\n---\n\n${layer3}`;
+
+  // Dynamic cross-domain knowledge injection
+  if (options?.userMessage) {
+    const dynamicKnowledge = buildDynamicSystemPrompt(personaKey, options.userMessage);
+    if (dynamicKnowledge) {
+      prompt += `\n\n---\n\n${dynamicKnowledge}`;
+    }
+  }
+
+  // Rich handoff context from visualizer (for Marcus)
+  if (options?.handoffContext && personaKey === 'quote-specialist') {
+    const hc = options.handoffContext;
+    let handoffSection = '## Handoff from Design Visualizer\n';
+
+    const dp = hc['designPreferences'] as Record<string, string> | undefined;
+    if (dp) {
+      const roomLabel = dp['customRoomType'] || dp['roomType']?.replace(/_/g, ' ') || 'Unknown';
+      const styleLabel = dp['customStyle'] || dp['style'] || 'Unknown';
+      handoffSection += `Room: ${roomLabel} | Style: ${styleLabel}\n`;
+      if (dp['textPreferences']) {
+        handoffSection += `Text Preferences: "${dp['textPreferences']}"\n`;
+      }
+      if (dp['voicePreferencesSummary']) {
+        handoffSection += `Voice Summary: "${dp['voicePreferencesSummary']}"\n`;
+      }
+    }
+
+    const vd = hc['visualizationData'] as Record<string, unknown> | undefined;
+    if (vd) {
+      const concepts = vd['concepts'] as unknown[];
+      handoffSection += `Visualization: ${concepts?.length || 0} concepts generated (ID: ${vd['id']})\n`;
+    }
+
+    prompt += `\n\n---\n\n${handoffSection}`;
+  }
+
+  return prompt;
 }
 
 /**

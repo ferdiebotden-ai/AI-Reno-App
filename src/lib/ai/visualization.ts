@@ -41,6 +41,12 @@ export interface VisualizationConfig {
   hasEdgeMap?: boolean | undefined;
   /** Depth range from depth estimation */
   depthRange?: { min: number; max: number } | undefined;
+  /** Custom room type description (when user selected 'other') */
+  customRoomType?: string | undefined;
+  /** Custom style description (when user selected 'other') */
+  customStyle?: string | undefined;
+  /** AI-generated summary of voice consultation preferences */
+  voicePreferencesSummary?: string | undefined;
 }
 
 /**

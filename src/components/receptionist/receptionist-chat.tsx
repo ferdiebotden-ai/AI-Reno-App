@@ -2,7 +2,7 @@
 
 /**
  * Receptionist Chat
- * Unified voice + text chat container
+ * Unified voice + text chat container with Chat/Talk mode toggle
  * Voice transcript appears inline with text messages
  */
 
@@ -18,8 +18,9 @@ import { VoiceIndicator } from '@/components/voice/voice-indicator';
 import { VoiceTranscriptMessage } from '@/components/voice/voice-transcript-message';
 import { useVoice } from '@/components/voice/voice-provider';
 import { RECEPTIONIST_PERSONA } from '@/lib/ai/personas/receptionist';
-import type { VoiceTranscriptEntry } from '@/lib/voice/config';
-import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { MessageCircle, AudioLines, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 function getMessageContent(message: UIMessage): string {
   return message.parts
@@ -36,16 +37,13 @@ interface DisplayMessage {
   source: 'text' | 'voice';
 }
 
-interface ReceptionistChatProps {
-  startInVoiceMode?: boolean;
-}
+type ChatMode = 'chat' | 'talk';
 
-export function ReceptionistChat({ startInVoiceMode }: ReceptionistChatProps) {
+export function ReceptionistChat() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [voiceMessages, setVoiceMessages] = useState<VoiceTranscriptEntry[]>([]);
-  const hasAutoStartedRef = useRef(false);
+  const [mode, setMode] = useState<ChatMode>('chat');
 
-  const { status, startVoice, isApiConfigured } = useVoice();
+  const { status, startVoice, endVoice, isApiConfigured, transcript: voiceTranscript } = useVoice();
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: '/api/ai/receptionist' }),
@@ -64,26 +62,23 @@ export function ReceptionistChat({ startInVoiceMode }: ReceptionistChatProps) {
   });
 
   const isLoading = chatStatus === 'streaming' || chatStatus === 'submitted';
+  const isVoiceActive = status === 'connected' || status === 'connecting';
 
-  // Auto-start voice if startInVoiceMode prop
-  useEffect(() => {
-    if (startInVoiceMode && !hasAutoStartedRef.current && isApiConfigured !== null) {
-      hasAutoStartedRef.current = true;
-      if (isApiConfigured) {
+  // Handle mode switching
+  const handleModeChange = useCallback((newMode: ChatMode) => {
+    if (newMode === mode) return;
+    setMode(newMode);
+
+    if (newMode === 'talk') {
+      if (isApiConfigured && status === 'disconnected') {
         startVoice('receptionist');
       }
+    } else {
+      if (isVoiceActive) {
+        endVoice();
+      }
     }
-  }, [startInVoiceMode, isApiConfigured, startVoice]);
-
-  // Collect voice transcript entries
-  const handleVoiceMessage = useCallback((entry: VoiceTranscriptEntry) => {
-    setVoiceMessages(prev => [...prev, entry]);
-  }, []);
-
-  // Note: We re-register voice message callback via a ref pattern in VoiceProvider
-  // For simplicity, voice messages come through the transcript in the provider
-
-  const { transcript: voiceTranscript } = useVoice();
+  }, [mode, isApiConfigured, status, startVoice, endVoice, isVoiceActive]);
 
   // Merge text messages and voice transcript for display
   const displayMessages = useMemo<DisplayMessage[]>(() => {
@@ -122,10 +117,38 @@ export function ReceptionistChat({ startInVoiceMode }: ReceptionistChatProps) {
     [sendMessage]
   );
 
-  const isVoiceActive = status === 'connected' || status === 'connecting';
-
   return (
     <div className="flex flex-col h-full">
+      {/* Mode Toggle — Chat / Talk segmented control */}
+      <div className="flex items-center gap-1 px-3 pt-2 pb-1">
+        <div className="flex bg-muted rounded-lg p-0.5 w-full">
+          <button
+            onClick={() => handleModeChange('chat')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all',
+              mode === 'chat'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            Chat
+          </button>
+          <button
+            onClick={() => handleModeChange('talk')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all',
+              mode === 'talk'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <AudioLines className="h-3.5 w-3.5" />
+            Talk
+          </button>
+        </div>
+      </div>
+
       {/* Messages */}
       <ScrollArea ref={scrollRef} className="flex-1 min-h-0">
         <div className="space-y-1 py-2">
@@ -151,7 +174,10 @@ export function ReceptionistChat({ startInVoiceMode }: ReceptionistChatProps) {
                 />
                 {message.role === 'assistant' && (
                   <div className="px-4 pl-14">
-                    <ReceptionistCTAButtons text={message.content} />
+                    <ReceptionistCTAButtons
+                      text={message.content}
+                      messages={displayMessages.map(m => ({ role: m.role, content: m.content }))}
+                    />
                   </div>
                 )}
               </div>
@@ -165,25 +191,50 @@ export function ReceptionistChat({ startInVoiceMode }: ReceptionistChatProps) {
         </div>
       </ScrollArea>
 
-      {/* Voice Indicator — shown inline when voice is active */}
-      {isVoiceActive && (
-        <VoiceIndicator persona="receptionist" />
+      {/* Voice mode content */}
+      {mode === 'talk' && (
+        <>
+          {/* Voice Indicator — shown inline when voice is active */}
+          {isVoiceActive && (
+            <VoiceIndicator persona="receptionist" />
+          )}
+
+          {/* Connecting indicator */}
+          {status === 'connecting' && (
+            <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground border-t border-border">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Connecting voice...
+            </div>
+          )}
+
+          {/* Start voice button (shown when disconnected in talk mode) */}
+          {status === 'disconnected' && (
+            <div className="p-4 border-t border-border flex flex-col items-center gap-2">
+              <Button
+                onClick={() => startVoice('receptionist')}
+                disabled={isApiConfigured === false}
+                className="w-full bg-primary"
+                size="lg"
+              >
+                <AudioLines className="h-4 w-4 mr-2" />
+                Talk to Emma
+              </Button>
+              {isApiConfigured === false && (
+                <p className="text-xs text-muted-foreground">Voice is not configured</p>
+              )}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Connecting indicator */}
-      {status === 'connecting' && (
-        <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground border-t border-border">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Connecting voice...
-        </div>
+      {/* Text input — visible in chat mode, or always as a fallback */}
+      {mode === 'chat' && (
+        <ReceptionistInput
+          onSend={handleSend}
+          disabled={isLoading}
+          persona="receptionist"
+        />
       )}
-
-      {/* Input — always visible */}
-      <ReceptionistInput
-        onSend={handleSend}
-        disabled={isLoading}
-        persona="receptionist"
-      />
     </div>
   );
 }

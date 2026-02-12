@@ -24,6 +24,7 @@ import { VoiceProvider, useVoice } from '@/components/voice/voice-provider';
 import { VoiceIndicator } from '@/components/voice/voice-indicator';
 import { VoiceTranscriptMessage } from '@/components/voice/voice-transcript-message';
 import { compressImage, fileToBase64 } from '@/lib/utils/image';
+import { readHandoffContext, clearHandoffContext, buildHandoffPromptPrefix, type HandoffContext } from '@/lib/chat/handoff';
 import { Save, FileText, Send } from 'lucide-react';
 import type { VoiceTranscriptEntry } from '@/lib/voice/config';
 
@@ -105,6 +106,16 @@ function ChatInterfaceInner({ initialMessages, sessionId: initialSessionId, visu
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
   const [voiceTranscriptMessages, setVoiceTranscriptMessages] = useState<ChatMessage[]>([]);
+  const [handoffContext, setHandoffContext] = useState<HandoffContext | null>(null);
+
+  // Read handoff context on mount (from persona navigation)
+  useEffect(() => {
+    const ctx = readHandoffContext();
+    if (ctx && ctx.toPersona === 'quote-specialist') {
+      setHandoffContext(ctx);
+      clearHandoffContext();
+    }
+  }, []);
 
   // Subscribe to voice transcript from VoiceProvider
   const { transcript: voiceTranscript } = useVoice();
@@ -129,9 +140,31 @@ function ChatInterfaceInner({ initialMessages, sessionId: initialSessionId, visu
   }, [voiceTranscript]);
 
   // Determine starting messages based on context
-  const welcomeMessage = visualizationContext
-    ? getVisualizationWelcomeMessage(visualizationContext)
-    : WELCOME_MESSAGE;
+  const getHandoffWelcome = (ctx: HandoffContext): string => {
+    const personaNames: Record<string, string> = {
+      receptionist: 'Emma',
+      'design-consultant': 'Mia',
+    };
+    const fromName = personaNames[ctx.fromPersona] || 'our team';
+
+    // Rich welcome when coming from visualizer with design preferences
+    if (ctx.fromPersona === 'design-consultant' && ctx.designPreferences) {
+      const dp = ctx.designPreferences;
+      const roomLabel = dp.customRoomType || dp.roomType.replace(/_/g, ' ');
+      const styleLabel = dp.customStyle || dp.style;
+      const conceptCount = ctx.visualizationData?.concepts.length || 0;
+      const conceptNote = conceptCount > 0 ? ` I can see you generated ${conceptCount} design concepts — they look great!` : '';
+      return `Hey there! I see you've been designing a ${roomLabel} renovation in a ${styleLabel} style with ${fromName}.${conceptNote}\n\nI'm Marcus, the budget and cost specialist here at Red White Reno. Let's turn that vision into real numbers.\n\nTo get you an accurate estimate, could you tell me about the size of the space and when you're hoping to start?`;
+    }
+
+    return `Hey! ${fromName} filled me in on what you've been discussing. I'm Marcus, the budget and cost specialist here at Red White Reno.\n\nLet's pick up where you left off and get you some solid numbers. What would you like to focus on first?`;
+  };
+
+  const welcomeMessage = handoffContext
+    ? getHandoffWelcome(handoffContext)
+    : visualizationContext
+      ? getVisualizationWelcomeMessage(visualizationContext)
+      : WELCOME_MESSAGE;
 
   const startingMessages: ChatMessage[] = initialMessages && initialMessages.length > 0
     ? initialMessages
@@ -139,12 +172,12 @@ function ChatInterfaceInner({ initialMessages, sessionId: initialSessionId, visu
 
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>(startingMessages);
 
-  // Initialize estimate data with visualization context if available
+  // Initialize estimate data with visualization context or handoff context
   const initialEstimateData: EstimateData = visualizationContext
-    ? {
-        projectType: mapRoomTypeToProjectType(visualizationContext.roomType),
-      }
-    : {};
+    ? { projectType: mapRoomTypeToProjectType(visualizationContext.roomType) }
+    : handoffContext?.designPreferences
+      ? { projectType: mapRoomTypeToProjectType(handoffContext.designPreferences.roomType) }
+      : {};
 
   const [estimateData, setEstimateData] = useState<EstimateData>(initialEstimateData);
   const [uploadedImages, setUploadedImages] = useState<Map<string, string[]>>(new Map());
@@ -152,10 +185,22 @@ function ChatInterfaceInner({ initialMessages, sessionId: initialSessionId, visu
     visualizationContext ? 'photo' : 'welcome'
   );
 
-  // Create transport with memoization to avoid recreation on every render
+  // Create transport — includes handoff context and estimate data for pricing gate
+  // Note: body is intentionally recreated when dependencies change
   const transport = useMemo(() => new DefaultChatTransport({
     api: '/api/ai/chat',
-  }), []);
+    body: {
+      ...(handoffContext && { handoffContext }),
+      estimateData: {
+        projectType: estimateData.projectType,
+        areaSqft: estimateData.areaSqft,
+        finishLevel: estimateData.finishLevel,
+        timeline: estimateData.timeline,
+        goals: estimateData.goals,
+        hasPhoto: Array.from(uploadedImages.values()).some(imgs => imgs.length > 0),
+      },
+    },
+  }), [handoffContext, estimateData.projectType, estimateData.areaSqft, estimateData.finishLevel, estimateData.timeline, estimateData.goals, uploadedImages]);
 
   // Convert initial messages to UIMessage format for useChat
   const initialUIMessages = useMemo(() => {

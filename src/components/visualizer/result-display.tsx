@@ -5,7 +5,7 @@
  * Complete visualization results with animated reveals
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { BeforeAfterSlider } from './before-after-slider';
@@ -15,6 +15,7 @@ import { DownloadButton } from './download-button';
 import { EmailCaptureModal } from './email-capture-modal';
 import { FadeInUp, ScaleIn, StaggerContainer, StaggerItem } from '@/components/motion';
 import type { VisualizationResponse } from '@/lib/schemas/visualization';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Share2,
   MessageSquare,
@@ -42,6 +43,13 @@ export function ResultDisplay({
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [emailCaptureOpen, setEmailCaptureOpen] = useState(false);
   const [hasProvidedEmail, setHasProvidedEmail] = useState(false);
+  const [showStickyCTA, setShowStickyCTA] = useState(false);
+
+  // Show sticky CTA after intro animation completes (~3s)
+  useEffect(() => {
+    const timer = setTimeout(() => setShowStickyCTA(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const selectedConcept = visualization.concepts[selectedConceptIndex];
 
@@ -207,6 +215,30 @@ export function ResultDisplay({
         visualizationId={visualization.id}
         onEmailSubmitted={handleEmailSubmitted}
       />
+
+      {/* Sticky "Get a Quote" CTA bar */}
+      <AnimatePresence>
+        {showStickyCTA && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+            className="fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none"
+          >
+            <div className="max-w-[600px] mx-auto pointer-events-auto">
+              <Button
+                size="lg"
+                className="w-full min-h-[56px] bg-[#D32F2F] hover:bg-[#B71C1C] text-white text-base font-semibold backdrop-blur-md shadow-xl shadow-[#D32F2F]/20 rounded-xl"
+                onClick={onGetQuote}
+              >
+                <MessageSquare className="w-5 h-5 mr-2" />
+                Get a Quote for This Design
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

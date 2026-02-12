@@ -44,9 +44,13 @@ export async function POST(req: Request) {
         content: getMessageContent(msg),
       }));
 
+    // Get latest user message for dynamic knowledge injection
+    const lastUserMsg = formattedMessages.filter((m: { role: string }) => m.role === 'user').pop();
+    const userMessage = lastUserMsg?.content as string | undefined;
+
     const result = streamText({
       model: openai(AI_CONFIG.openai.chat),
-      system: buildAgentSystemPrompt('receptionist'),
+      system: buildAgentSystemPrompt('receptionist', { userMessage }),
       messages: formattedMessages,
       maxOutputTokens: 512,
       temperature: 0.7,

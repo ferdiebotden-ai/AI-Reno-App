@@ -32,22 +32,46 @@ import {
 import type { DesignIntent } from '@/lib/schemas/visualizer-extraction';
 
 // Extended request schema with optional photo analysis and design intent
-const enhancedVisualizationRequestSchema = visualizationRequestSchema.extend({
-  /** Skip photo analysis (for quick mode) */
-  skipAnalysis: z.boolean().optional().default(false),
-  /** Pre-analyzed photo data (from conversation mode) */
-  photoAnalysis: z.record(z.string(), z.unknown()).optional(),
-  /** Design intent from conversation */
-  designIntent: z.object({
-    desiredChanges: z.array(z.string()),
-    constraintsToPreserve: z.array(z.string()),
-    materialPreferences: z.array(z.string()).optional(),
-  }).optional(),
-  /** Conversation context for storage */
-  conversationContext: z.record(z.string(), z.unknown()).optional(),
-  /** Mode indicator */
-  mode: z.enum(['quick', 'conversation']).optional().default('quick'),
-});
+const enhancedVisualizationRequestSchema = visualizationRequestSchema
+  .omit({ roomType: true, style: true })
+  .extend({
+    /** Room type — accepts standard types or 'other' for custom */
+    roomType: z.union([
+      z.enum(['kitchen', 'bathroom', 'living_room', 'bedroom', 'basement', 'dining_room', 'exterior']),
+      z.literal('other'),
+    ]),
+    /** Custom room type description (when roomType === 'other') */
+    customRoomType: z.string().max(100).optional(),
+    /** Design style — accepts standard styles or 'other' for custom */
+    style: z.union([
+      z.enum(['modern', 'traditional', 'farmhouse', 'industrial', 'minimalist', 'contemporary']),
+      z.literal('other'),
+    ]),
+    /** Custom style description (when style === 'other') */
+    customStyle: z.string().max(100).optional(),
+    /** Skip photo analysis (for quick mode) */
+    skipAnalysis: z.boolean().optional().default(false),
+    /** Pre-analyzed photo data (from conversation mode) */
+    photoAnalysis: z.record(z.string(), z.unknown()).optional(),
+    /** Design intent from conversation */
+    designIntent: z.object({
+      desiredChanges: z.array(z.string()),
+      constraintsToPreserve: z.array(z.string()),
+      materialPreferences: z.array(z.string()).optional(),
+    }).optional(),
+    /** Voice transcript from Mia consultation */
+    voiceTranscript: z.array(z.object({
+      role: z.enum(['user', 'assistant']),
+      content: z.string(),
+      timestamp: z.coerce.date(),
+    })).optional(),
+    /** AI-generated summary of voice preferences */
+    voicePreferencesSummary: z.string().optional(),
+    /** Conversation context for storage */
+    conversationContext: z.record(z.string(), z.unknown()).optional(),
+    /** Mode indicator */
+    mode: z.enum(['quick', 'conversation', 'streamlined']).optional().default('quick'),
+  });
 
 // Maximum execution time for Vercel
 export const maxDuration = 90;
@@ -74,11 +98,15 @@ export async function POST(request: NextRequest) {
       image,
       roomType,
       style,
+      customRoomType,
+      customStyle,
       constraints,
       count,
       skipAnalysis,
       photoAnalysis: providedAnalysis,
       designIntent,
+      voiceTranscript,
+      voicePreferencesSummary,
       conversationContext,
       mode,
     } = parseResult.data;
@@ -172,9 +200,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Build visualization config with enhanced data
+    // For custom room/style types, fall back to a reasonable default for type compatibility
+    const effectiveRoomType: RoomType = roomType === 'other' ? 'living_room' : roomType as RoomType;
+    const effectiveStyle: DesignStyle = style === 'other' ? 'contemporary' : style as DesignStyle;
+
     const visualizationConfig: VisualizationConfig = {
-      roomType: roomType as RoomType,
-      style: style as DesignStyle,
+      roomType: effectiveRoomType,
+      style: effectiveStyle,
       ...(constraints && { constraints }),
       ...(photoAnalysis && { photoAnalysis }),
       ...(designIntent && {
@@ -184,6 +216,10 @@ export async function POST(request: NextRequest) {
           ...(designIntent.materialPreferences && { materialPreferences: designIntent.materialPreferences }),
         },
       }),
+      // Pass custom types and voice data for prompt builder
+      ...(roomType === 'other' && customRoomType && { customRoomType }),
+      ...(style === 'other' && customStyle && { customStyle }),
+      ...(voicePreferencesSummary && { voicePreferencesSummary }),
       useEnhancedPrompts: true,
       referenceImages: referenceImages.length > 1 ? referenceImages : undefined,
       hasDepthMap,
@@ -208,14 +244,16 @@ export async function POST(request: NextRequest) {
     const shareToken = generateShareToken();
 
     // Save visualization to database with enhanced fields
-    // Map 'exterior' to 'living_room' for DB compatibility (DB enum doesn't include exterior)
-    const dbRoomType = roomType === 'exterior' ? 'living_room' : roomType;
+    // Map 'exterior'/'other' to 'living_room' for DB compatibility (DB enum doesn't include them)
+    const dbRoomType = (roomType === 'exterior' || roomType === 'other') ? 'living_room' : roomType;
+    // Map 'other' style to 'contemporary' for DB compatibility
+    const dbStyle = style === 'other' ? 'contemporary' : style;
     const { data: visualization, error: dbError } = await supabase
       .from('visualizations')
       .insert(withSiteId({
         original_photo_url: originalImageUrl,
         room_type: dbRoomType as 'kitchen' | 'bathroom' | 'living_room' | 'bedroom' | 'basement' | 'dining_room',
-        style: style,
+        style: dbStyle,
         constraints: constraints || null,
         generated_concepts: concepts,
         generation_time_ms: generationTimeMs,
@@ -246,17 +284,17 @@ export async function POST(request: NextRequest) {
       generationTimeMs,
       conceptsRequested: count,
       conceptsGenerated: concepts.length,
-      mode: mode || 'quick',
+      mode: (mode === 'streamlined' ? 'quick' : mode) || 'quick',
       photoAnalyzed: !!photoAnalysis,
       conversationTurns: (conversationContext as Record<string, unknown>)?.['turnCount'] as number || 0,
     }).catch((err) => console.error('Failed to record metrics:', err));
 
-    // Build response
+    // Build response — use effective types for schema compliance
     const response: VisualizationResponse = {
       id: visualization.id,
       originalImageUrl,
-      roomType,
-      style,
+      roomType: effectiveRoomType,
+      style: effectiveStyle,
       constraints: constraints || undefined,
       concepts,
       generationTimeMs,
