@@ -15,7 +15,6 @@ import { TypingIndicator } from '@/components/chat/typing-indicator';
 import { ReceptionistInput } from './receptionist-input';
 import { ReceptionistCTAButtons, stripCTAs } from './receptionist-cta-buttons';
 import { VoiceIndicator } from '@/components/voice/voice-indicator';
-import { VoiceHandoffCards } from '@/components/voice/voice-handoff-cards';
 import { VoiceTranscriptMessage } from '@/components/voice/voice-transcript-message';
 import { useVoice } from '@/components/voice/voice-provider';
 import { RECEPTIONIST_PERSONA } from '@/lib/ai/personas/receptionist';
@@ -199,7 +198,6 @@ export function ReceptionistChat() {
           {isVoiceActive && (
             <VoiceIndicator persona="receptionist" />
           )}
-          <VoiceHandoffCards />
 
           {/* Connecting indicator */}
           {status === 'connecting' && (
